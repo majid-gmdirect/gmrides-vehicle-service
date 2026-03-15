@@ -12,6 +12,16 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum InspectionType {
+  MOT
+  SAFETY
+  EMISSIONS
+  ANNUAL
+  TFL
+  PRIVATE_HIRE
+  MECHANICAL
+}
+
 // ==========================
 // VEHICLES
 // ==========================
@@ -60,7 +70,7 @@ model VehicleImage {
 model VehicleInspection {
   id         String   @id @default(uuid())
   vehicleId  String
-  inspectionType String // MOT, Safety, Emissions, etc.
+  inspectionType InspectionType // MOT, Safety, Emissions, etc.
   inspectionDate DateTime
   expiryDate DateTime?
   document   Json?
