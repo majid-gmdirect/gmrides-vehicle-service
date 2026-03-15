@@ -1,0 +1,106 @@
+// =======================================
+// Vehicle Service Schema (Uber-like)
+// Handles: Vehicles, VehicleImages, Contracts, MOT, Insurance, PCO
+// =======================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================
+// VEHICLES
+// ==========================
+
+model Vehicle {
+  id           String   @id @default(uuid())
+  driverId     String   // references driverId from User Service
+
+  make         String
+  model        String
+  year         Int
+  color        String?
+  plateNumber  String   @unique
+
+  isApproved   Boolean  @default(false)  // admin approval
+  isActive     Boolean  @default(true)   // currently in use
+
+  images       VehicleImage[]
+  inspections  VehicleInspection[]
+  insurances   VehicleInsurance[]
+  pcoDocs      VehiclePcoDocument[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ==========================
+// VEHICLE IMAGES
+// ==========================
+
+model VehicleImage {
+  id        String   @id @default(uuid())
+  vehicleId String
+  image     Json
+  type      String   // front, back, interior, plate, registration, other
+
+  vehicle   Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+}
+
+// ==========================
+// VEHICLE INSPECTIONS / MOT
+// ==========================
+
+model VehicleInspection {
+  id         String   @id @default(uuid())
+  vehicleId  String
+  inspectionType String // MOT, Safety, Emissions, etc.
+  inspectionDate DateTime
+  expiryDate DateTime?
+  document   Json?
+
+  vehicle    Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+// ==========================
+// VEHICLE INSURANCE
+// ==========================
+
+model VehicleInsurance {
+  id         String   @id @default(uuid())
+  vehicleId  String
+  provider   String
+  policyNumber String
+  startDate  DateTime
+  endDate    DateTime?
+  document   Json?
+
+  vehicle    Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+// ==========================
+// VEHICLE PCO DOCUMENTS
+// ==========================
+
+model VehiclePcoDocument {
+  id         String   @id @default(uuid())
+  vehicleId  String
+  badgeNumber String?
+  issueDate  DateTime
+  expiryDate DateTime
+  document   Json?    // PCO badge scan or registration document
+
+  vehicle    Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
