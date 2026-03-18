@@ -43,8 +43,12 @@ async function bootstrap() {
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  if (process.env.ENABLE_SWAGGER === 'true') {
+  const enableSwagger = process.env.ENABLE_SWAGGER !== 'false';
+  if (enableSwagger) {
+    // canonical path
     SwaggerModule.setup('api/vehicles/swagger', app, document);
+    // backwards-compatible typo path (requested)
+    SwaggerModule.setup('api/hehicles/swagger', app, document);
   }
   await app.startAllMicroservices();
   await app.listen(process.env.PORT ?? 4002);
