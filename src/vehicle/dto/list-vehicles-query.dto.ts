@@ -1,4 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform, Type } from 'class-transformer';
 import {
   IsBoolean,
   IsIn,
@@ -17,12 +18,14 @@ export class ListVehiclesQueryDto {
 
   @ApiPropertyOptional({ description: 'Page number', example: 1, default: 1 })
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   page?: number = 1;
 
   @ApiPropertyOptional({ description: 'Items per page', example: 10, default: 10 })
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   @Max(100)
@@ -40,11 +43,29 @@ export class ListVehiclesQueryDto {
 
   @ApiPropertyOptional({ description: 'Filter approved status', example: true })
   @IsOptional()
+  @Transform(({ value }) => {
+    if (value === true || value === false) return value;
+    if (typeof value === 'string') {
+      const v = value.trim().toLowerCase();
+      if (v === 'true') return true;
+      if (v === 'false') return false;
+    }
+    return value;
+  })
   @IsBoolean()
   isApproved?: boolean;
 
   @ApiPropertyOptional({ description: 'Filter active status', example: true })
   @IsOptional()
+  @Transform(({ value }) => {
+    if (value === true || value === false) return value;
+    if (typeof value === 'string') {
+      const v = value.trim().toLowerCase();
+      if (v === 'true') return true;
+      if (v === 'false') return false;
+    }
+    return value;
+  })
   @IsBoolean()
   isActive?: boolean;
 }
