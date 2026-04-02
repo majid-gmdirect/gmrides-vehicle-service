@@ -93,6 +93,45 @@ export class VehicleService {
     }
   }
 
+  private async fetchDriversByIds(driverIds: string[]) {
+    const baseUrl = process.env.BASE_API_URL;
+    if (!baseUrl) {
+      throw new BadRequestException('BASE_API_URL is not configured');
+    }
+    if (!process.env.INTERNAL_API_KEY) {
+      throw new BadRequestException('INTERNAL_API_KEY is not configured');
+    }
+
+    const ids = Array.from(new Set(driverIds.filter(Boolean)));
+    if (ids.length === 0) return new Map<string, any>();
+
+    try {
+      const res = await lastValueFrom(
+        this.httpService.post(`${baseUrl}/api/users/driver/bulk/by-ids`, {
+          ids,
+        }, {
+          headers: {
+            Authorization: `Bearer ${process.env.INTERNAL_API_KEY}`,
+          },
+        }),
+      );
+
+      const drivers: any[] = res?.data ?? [];
+      const map = new Map<string, any>();
+      for (const d of drivers) {
+        const userId = d?.userId ?? d?.user?.id;
+        if (userId) map.set(userId, d);
+      }
+      return map;
+    } catch (err: any) {
+      const status = err?.response?.status;
+      if (status === 401) {
+        throw new BadRequestException('Internal user-service auth failed');
+      }
+      throw new BadRequestException('Failed to fetch driver info from user service');
+    }
+  }
+
   private async getVehicleOrThrow(vehicleId: string) {
     const vehicle = await this.prisma.vehicle.findUnique({
       where: { id: vehicleId },
@@ -311,9 +350,15 @@ export class VehicleService {
       this.prisma.vehicle.count({ where }),
     ]);
 
+    const driverMap = await this.fetchDriversByIds(data.map((v) => v.driverId));
+    const enriched = data.map((v) => ({
+      ...v,
+      driver: driverMap.get(v.driverId) ?? null,
+    }));
+
     return formatResponse({
       success: true,
-      data,
+      data: enriched,
       paginationMeta: { total, page, limit },
       message: 'Vehicles fetched successfully',
     });
