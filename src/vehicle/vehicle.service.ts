@@ -151,6 +151,29 @@ export class VehicleService {
           return ids.filter((id: any) => typeof id === 'string' && id.length > 0);
         } catch (e: any) {
           const status = e?.response?.status;
+          // Next best: use the existing user list endpoint (searches Users, not driver profiles).
+          // This is important in prod where the gateway may not route /internal/driver-ids yet.
+          if (status === 404) {
+            try {
+              const res = await lastValueFrom(
+                this.httpService.get(`${baseUrl}/api/users/main`, {
+                  headers,
+                  params: {
+                    search: term,
+                    role: 'DRIVER',
+                    page: 1,
+                    limit: 200,
+                  },
+                }),
+              );
+              const users: any[] = res?.data?.data ?? [];
+              return users
+                .map((u) => u?.id)
+                .filter((id: any) => typeof id === 'string' && id.length > 0);
+            } catch {
+              // fall through to legacy driver-profile endpoint
+            }
+          }
           // Backwards-compatible fallback: older user-service versions only have `/internal/drivers`
           if (status === 404) {
             const res = await lastValueFrom(
