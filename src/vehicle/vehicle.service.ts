@@ -106,22 +106,44 @@ export class VehicleService {
     if (ids.length === 0) return new Map<string, any>();
 
     try {
-      const res = await lastValueFrom(
-        this.httpService.post(`${baseUrl}/api/users/driver/bulk/by-ids`, {
-          ids,
-        }, {
-          headers: {
-            Authorization: `Bearer ${process.env.INTERNAL_API_KEY}`,
-          },
-        }),
-      );
+      const headers = {
+        Authorization: `Bearer ${process.env.INTERNAL_API_KEY}`,
+      };
 
-      const drivers: any[] = res?.data ?? [];
+      // Prefer enriched "driver profile + user" when available
+      const driverRes = await lastValueFrom(
+        this.httpService.post(
+          `${baseUrl}/api/users/driver/bulk/by-ids`,
+          { ids },
+          { headers },
+        ),
+      );
+      const drivers: any[] = driverRes?.data ?? [];
+
       const map = new Map<string, any>();
       for (const d of drivers) {
         const userId = d?.userId ?? d?.user?.id;
         if (userId) map.set(userId, d);
       }
+
+      // Fallback: some users may not have a driver profile row yet.
+      // In that case, fetch basic user info so "driver" isn't null.
+      const missing = ids.filter((id) => !map.has(id));
+      if (missing.length) {
+        const userRes = await lastValueFrom(
+          this.httpService.post(
+            `${baseUrl}/api/users/main/batch`,
+            { ids: missing },
+            { headers },
+          ),
+        );
+        const users: any[] = userRes?.data ?? [];
+        for (const u of users) {
+          const userId = u?.id;
+          if (userId) map.set(userId, { user: u });
+        }
+      }
+
       return map;
     } catch (err: any) {
       const status = err?.response?.status;
