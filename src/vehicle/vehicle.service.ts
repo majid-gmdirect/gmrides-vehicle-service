@@ -93,6 +93,78 @@ export class VehicleService {
     }
   }
 
+  private toPublicDriverShape(input: any) {
+    if (!input) return null;
+    // driver-service returns `{ userId, ..., user: { first_name, last_name, ... } }`
+    // user batch fallback returns `{ user: { first_name, last_name, ... } }`
+    const user = input?.user;
+    const userId = input?.userId ?? user?.id;
+
+    const base =
+      user && (user.first_name || user.last_name || user.email || user.avatar !== undefined)
+        ? {
+            id: userId,
+            firstName: user.first_name ?? null,
+            lastName: user.last_name ?? null,
+            email: user.email ?? null,
+            avatar: user.avatar ?? null,
+          }
+        : userId
+          ? { id: userId }
+          : {};
+
+    // Include driver profile fields if present (without nesting `user`)
+    const { user: _user, ...rest } = input ?? {};
+    return {
+      ...base,
+      ...rest,
+    };
+  }
+
+  private async fetchDriverIdsByName(search: string): Promise<string[]> {
+    const baseUrl = process.env.BASE_API_URL;
+    if (!baseUrl) {
+      throw new BadRequestException('BASE_API_URL is not configured');
+    }
+    if (!process.env.INTERNAL_API_KEY) {
+      throw new BadRequestException('INTERNAL_API_KEY is not configured');
+    }
+
+    const q = search.trim();
+    if (!q) return [];
+
+    try {
+      const res = await lastValueFrom(
+        this.httpService.get(`${baseUrl}/api/users/main/internal/drivers`, {
+          headers: {
+            Authorization: `Bearer ${process.env.INTERNAL_API_KEY}`,
+          },
+          params: {
+            search: q,
+            page: 1,
+            limit: 100, // enough for admin search; can be increased later if needed
+          },
+        }),
+      );
+
+      const drivers: any[] = res?.data?.data ?? [];
+      return Array.from(
+        new Set(
+          drivers
+            .map((d) => d?.userId ?? d?.user?.id)
+            .filter((id: any) => typeof id === 'string' && id.length > 0),
+        ),
+      );
+    } catch (err: any) {
+      const status = err?.response?.status;
+      if (status === 401) {
+        throw new BadRequestException('Internal user-service auth failed');
+      }
+      // Non-fatal for vehicle search: if user-service search is down, don't break vehicle listing
+      return [];
+    }
+  }
+
   private async fetchDriversByIds(driverIds: string[]) {
     const baseUrl = process.env.BASE_API_URL;
     if (!baseUrl) {
@@ -144,7 +216,11 @@ export class VehicleService {
         }
       }
 
-      return map;
+      const shaped = new Map<string, any>();
+      for (const [id, value] of map.entries()) {
+        shaped.set(id, this.toPublicDriverShape(value));
+      }
+      return shaped;
     } catch (err: any) {
       const status = err?.response?.status;
       if (status === 401) {
@@ -355,6 +431,21 @@ export class VehicleService {
       ...(isActive !== undefined && { isActive }),
       ...(isApproved !== undefined && { isApproved }),
     };
+
+    // If search looks like a name, resolve matching driverIds via user-service and filter by those ids too.
+    if (search?.trim()) {
+      const driverIdsByName = await this.fetchDriverIdsByName(search);
+      if (driverIdsByName.length) {
+        where.OR = [
+          ...(where.OR ?? []),
+          {
+            driverId: {
+              in: driverIdsByName,
+            },
+          },
+        ];
+      }
+    }
 
     const [data, total] = await this.prisma.$transaction([
       this.prisma.vehicle.findMany({
