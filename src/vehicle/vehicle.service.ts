@@ -140,19 +140,15 @@ export class VehicleService {
 
       const fetchIds = async (term: string): Promise<string[]> => {
         const res = await lastValueFrom(
-          this.httpService.get(`${baseUrl}/api/users/main/internal/drivers`, {
+          this.httpService.get(`${baseUrl}/api/users/main/internal/driver-ids`, {
             headers,
             params: {
               search: term,
-              page: 1,
-              limit: 100, // enough for admin search; can be increased later if needed
             },
           }),
         );
-        const drivers: any[] = res?.data?.data ?? [];
-        return drivers
-          .map((d) => d?.userId ?? d?.user?.id)
-          .filter((id: any) => typeof id === 'string' && id.length > 0);
+        const ids: any[] = res?.data?.ids ?? [];
+        return ids.filter((id: any) => typeof id === 'string' && id.length > 0);
       };
 
       // User-service search likely does a "contains" on one field at a time.
