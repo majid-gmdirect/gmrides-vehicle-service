@@ -134,27 +134,44 @@ export class VehicleService {
     if (!q) return [];
 
     try {
-      const res = await lastValueFrom(
-        this.httpService.get(`${baseUrl}/api/users/main/internal/drivers`, {
-          headers: {
-            Authorization: `Bearer ${process.env.INTERNAL_API_KEY}`,
-          },
-          params: {
-            search: q,
-            page: 1,
-            limit: 100, // enough for admin search; can be increased later if needed
-          },
-        }),
-      );
+      const headers = {
+        Authorization: `Bearer ${process.env.INTERNAL_API_KEY}`,
+      };
 
-      const drivers: any[] = res?.data?.data ?? [];
-      return Array.from(
-        new Set(
-          drivers
-            .map((d) => d?.userId ?? d?.user?.id)
-            .filter((id: any) => typeof id === 'string' && id.length > 0),
-        ),
-      );
+      const fetchIds = async (term: string): Promise<string[]> => {
+        const res = await lastValueFrom(
+          this.httpService.get(`${baseUrl}/api/users/main/internal/drivers`, {
+            headers,
+            params: {
+              search: term,
+              page: 1,
+              limit: 100, // enough for admin search; can be increased later if needed
+            },
+          }),
+        );
+        const drivers: any[] = res?.data?.data ?? [];
+        return drivers
+          .map((d) => d?.userId ?? d?.user?.id)
+          .filter((id: any) => typeof id === 'string' && id.length > 0);
+      };
+
+      // User-service search likely does a "contains" on one field at a time.
+      // So "first last" often won't match. We handle that by splitting and intersecting.
+      const terms = q.split(/\s+/).filter(Boolean);
+
+      const fullMatchIds = await fetchIds(q);
+      if (terms.length <= 1) {
+        return Array.from(new Set(fullMatchIds));
+      }
+
+      // Fetch ids per term and intersect for precision (hadi AND alizada)
+      const perTerm = await Promise.all(terms.map((t) => fetchIds(t)));
+      const sets = perTerm.map((arr) => new Set(arr));
+      const intersection = perTerm[0].filter((id) => sets.every((s) => s.has(id)));
+
+      // If intersection is empty (edge cases), fall back to union to be permissive
+      const union = Array.from(new Set([...fullMatchIds, ...perTerm.flat()]));
+      return intersection.length ? Array.from(new Set(intersection)) : union;
     } catch (err: any) {
       const status = err?.response?.status;
       if (status === 401) {
