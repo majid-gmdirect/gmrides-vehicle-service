@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Param, Patch, Post, Req } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Req } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Roles } from '../../auth/roles.decorator';
 import {
@@ -8,6 +8,8 @@ import {
 import {
   CreateVehicleInsuranceSwagger,
   DeleteVehicleInsuranceSwagger,
+  GetVehicleInsuranceSwagger,
+  ListVehicleInsurancesSwagger,
   UpdateVehicleInsuranceSwagger,
 } from '../decorators/vehicle-swagger.decorator';
 import { VehicleService } from '../vehicle.service';
@@ -16,6 +18,34 @@ import { VehicleService } from '../vehicle.service';
 @Controller()
 export class VehicleInsurancesController {
   constructor(private readonly vehicleService: VehicleService) {}
+
+  @Get('driver/:driverId/vehicles/:vehicleId/insurances')
+  @Roles('DRIVER', 'ADMIN')
+  @ListVehicleInsurancesSwagger()
+  listInsurances(
+    @Param('driverId') driverId: string,
+    @Param('vehicleId') vehicleId: string,
+    @Req() req: { user: { userId: string; role?: string } },
+  ) {
+    return this.vehicleService.listInsurances(driverId, vehicleId, req.user);
+  }
+
+  @Get('driver/:driverId/vehicles/:vehicleId/insurances/:insuranceId')
+  @Roles('DRIVER', 'ADMIN')
+  @GetVehicleInsuranceSwagger()
+  getInsurance(
+    @Param('driverId') driverId: string,
+    @Param('vehicleId') vehicleId: string,
+    @Param('insuranceId') insuranceId: string,
+    @Req() req: { user: { userId: string; role?: string } },
+  ) {
+    return this.vehicleService.getInsurance(
+      driverId,
+      vehicleId,
+      insuranceId,
+      req.user,
+    );
+  }
 
   @Post('driver/:driverId/vehicles/:vehicleId/insurances')
   @Roles('DRIVER', 'ADMIN')

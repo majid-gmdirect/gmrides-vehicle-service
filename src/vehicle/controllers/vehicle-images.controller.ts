@@ -1,10 +1,12 @@
-import { Body, Controller, Delete, Param, Post, Req } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Req } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Roles } from '../../auth/roles.decorator';
 import { CreateVehicleImageDto } from '../dto';
 import {
   AddVehicleImageSwagger,
   DeleteVehicleImageSwagger,
+  GetVehicleImageSwagger,
+  ListVehicleImagesSwagger,
 } from '../decorators/vehicle-swagger.decorator';
 import { VehicleService } from '../vehicle.service';
 
@@ -12,6 +14,29 @@ import { VehicleService } from '../vehicle.service';
 @Controller()
 export class VehicleImagesController {
   constructor(private readonly vehicleService: VehicleService) {}
+
+  @Get('driver/:driverId/vehicles/:vehicleId/images')
+  @Roles('DRIVER', 'ADMIN')
+  @ListVehicleImagesSwagger()
+  listImages(
+    @Param('driverId') driverId: string,
+    @Param('vehicleId') vehicleId: string,
+    @Req() req: { user: { userId: string; role?: string } },
+  ) {
+    return this.vehicleService.listImages(driverId, vehicleId, req.user);
+  }
+
+  @Get('driver/:driverId/vehicles/:vehicleId/images/:imageId')
+  @Roles('DRIVER', 'ADMIN')
+  @GetVehicleImageSwagger()
+  getImage(
+    @Param('driverId') driverId: string,
+    @Param('vehicleId') vehicleId: string,
+    @Param('imageId') imageId: string,
+    @Req() req: { user: { userId: string; role?: string } },
+  ) {
+    return this.vehicleService.getImage(driverId, vehicleId, imageId, req.user);
+  }
 
   @Post('driver/:driverId/vehicles/:vehicleId/images')
   @Roles('DRIVER', 'ADMIN')

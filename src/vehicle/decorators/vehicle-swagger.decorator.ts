@@ -147,6 +147,31 @@ export function DeleteVehicleImageSwagger(): MethodDecorator {
   );
 }
 
+export function ListVehicleImagesSwagger(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({ summary: 'List vehicle images' }),
+    ApiParam({ name: 'driverId', type: String, description: 'Driver user ID' }),
+    ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
+    ApiOkResponse({ description: 'Vehicle images retrieved successfully' }),
+    ApiNotFoundResponse({ description: 'Vehicle not found' }),
+    ApiForbiddenResponse({ description: 'Access denied' }),
+  );
+}
+
+export function GetVehicleImageSwagger(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({ summary: 'Get a single vehicle image' }),
+    ApiParam({ name: 'driverId', type: String, description: 'Driver user ID' }),
+    ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
+    ApiParam({ name: 'imageId', type: String, description: 'Vehicle image ID' }),
+    ApiOkResponse({ description: 'Vehicle image retrieved successfully' }),
+    ApiNotFoundResponse({ description: 'Vehicle or image not found' }),
+    ApiForbiddenResponse({ description: 'Access denied' }),
+  );
+}
+
 export function CreateVehicleInspectionSwagger(): MethodDecorator {
   return applyDecorators(
     ApiBearerAuth(),
@@ -191,6 +216,35 @@ export function DeleteVehicleInspectionSwagger(): MethodDecorator {
     }),
     ApiOkResponse({ description: 'Vehicle inspection deleted successfully' }),
     ApiNotFoundResponse({ description: 'Vehicle inspection not found' }),
+    ApiForbiddenResponse({ description: 'Access denied' }),
+  );
+}
+
+export function ListVehicleInspectionsSwagger(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({ summary: 'List vehicle inspections' }),
+    ApiParam({ name: 'driverId', type: String, description: 'Driver user ID' }),
+    ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
+    ApiOkResponse({ description: 'Vehicle inspections retrieved successfully' }),
+    ApiNotFoundResponse({ description: 'Vehicle not found' }),
+    ApiForbiddenResponse({ description: 'Access denied' }),
+  );
+}
+
+export function GetVehicleInspectionSwagger(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({ summary: 'Get a single vehicle inspection' }),
+    ApiParam({ name: 'driverId', type: String, description: 'Driver user ID' }),
+    ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
+    ApiParam({
+      name: 'inspectionId',
+      type: String,
+      description: 'Vehicle inspection ID',
+    }),
+    ApiOkResponse({ description: 'Vehicle inspection retrieved successfully' }),
+    ApiNotFoundResponse({ description: 'Vehicle or inspection not found' }),
     ApiForbiddenResponse({ description: 'Access denied' }),
   );
 }
@@ -243,6 +297,35 @@ export function DeleteVehicleInsuranceSwagger(): MethodDecorator {
   );
 }
 
+export function ListVehicleInsurancesSwagger(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({ summary: 'List vehicle insurance records' }),
+    ApiParam({ name: 'driverId', type: String, description: 'Driver user ID' }),
+    ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
+    ApiOkResponse({ description: 'Vehicle insurances retrieved successfully' }),
+    ApiNotFoundResponse({ description: 'Vehicle not found' }),
+    ApiForbiddenResponse({ description: 'Access denied' }),
+  );
+}
+
+export function GetVehicleInsuranceSwagger(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({ summary: 'Get a single vehicle insurance record' }),
+    ApiParam({ name: 'driverId', type: String, description: 'Driver user ID' }),
+    ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
+    ApiParam({
+      name: 'insuranceId',
+      type: String,
+      description: 'Vehicle insurance ID',
+    }),
+    ApiOkResponse({ description: 'Vehicle insurance retrieved successfully' }),
+    ApiNotFoundResponse({ description: 'Vehicle or insurance not found' }),
+    ApiForbiddenResponse({ description: 'Access denied' }),
+  );
+}
+
 export function CreateVehiclePcoDocSwagger(): MethodDecorator {
   return applyDecorators(
     ApiBearerAuth(),
@@ -279,6 +362,31 @@ export function DeleteVehiclePcoDocSwagger(): MethodDecorator {
     ApiParam({ name: 'pcoDocId', type: String, description: 'PCO document ID' }),
     ApiOkResponse({ description: 'Vehicle PCO document deleted successfully' }),
     ApiNotFoundResponse({ description: 'Vehicle PCO document not found' }),
+    ApiForbiddenResponse({ description: 'Access denied' }),
+  );
+}
+
+export function ListVehiclePcoDocsSwagger(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({ summary: 'List vehicle PCO documents' }),
+    ApiParam({ name: 'driverId', type: String, description: 'Driver user ID' }),
+    ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
+    ApiOkResponse({ description: 'Vehicle PCO documents retrieved successfully' }),
+    ApiNotFoundResponse({ description: 'Vehicle not found' }),
+    ApiForbiddenResponse({ description: 'Access denied' }),
+  );
+}
+
+export function GetVehiclePcoDocSwagger(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({ summary: 'Get a single vehicle PCO document' }),
+    ApiParam({ name: 'driverId', type: String, description: 'Driver user ID' }),
+    ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
+    ApiParam({ name: 'pcoDocId', type: String, description: 'PCO document ID' }),
+    ApiOkResponse({ description: 'Vehicle PCO document retrieved successfully' }),
+    ApiNotFoundResponse({ description: 'Vehicle or PCO document not found' }),
     ApiForbiddenResponse({ description: 'Access denied' }),
   );
 }

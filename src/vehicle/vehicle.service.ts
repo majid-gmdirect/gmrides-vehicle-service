@@ -567,6 +567,49 @@ export class VehicleService {
   // -----------------------
   // Images
   // -----------------------
+  async listImages(
+    driverId: string,
+    vehicleId: string,
+    requester: Requester,
+  ) {
+    this.assertDriverAccess(driverId, requester);
+    await this.assertDriverExistsAndIsDriver(driverId);
+    await this.getVehicleForDriverOrThrow(driverId, vehicleId);
+
+    const images = await this.prisma.vehicleImage.findMany({
+      where: { vehicleId },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return formatResponse({
+      success: true,
+      data: images,
+      message: 'Vehicle images retrieved successfully',
+    });
+  }
+
+  async getImage(
+    driverId: string,
+    vehicleId: string,
+    imageId: string,
+    requester: Requester,
+  ) {
+    this.assertDriverAccess(driverId, requester);
+    await this.assertDriverExistsAndIsDriver(driverId);
+    await this.getVehicleForDriverOrThrow(driverId, vehicleId);
+
+    const image = await this.prisma.vehicleImage.findFirst({
+      where: { id: imageId, vehicleId },
+    });
+    if (!image) throw new NotFoundException('Vehicle image not found');
+
+    return formatResponse({
+      success: true,
+      data: image,
+      message: 'Vehicle image retrieved successfully',
+    });
+  }
+
   async addImage(
     driverId: string,
     vehicleId: string,
@@ -618,6 +661,49 @@ export class VehicleService {
   // -----------------------
   // Inspections
   // -----------------------
+  async listInspections(
+    driverId: string,
+    vehicleId: string,
+    requester: Requester,
+  ) {
+    this.assertDriverAccess(driverId, requester);
+    await this.assertDriverExistsAndIsDriver(driverId);
+    await this.getVehicleForDriverOrThrow(driverId, vehicleId);
+
+    const inspections = await this.prisma.vehicleInspection.findMany({
+      where: { vehicleId },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return formatResponse({
+      success: true,
+      data: inspections,
+      message: 'Vehicle inspections retrieved successfully',
+    });
+  }
+
+  async getInspection(
+    driverId: string,
+    vehicleId: string,
+    inspectionId: string,
+    requester: Requester,
+  ) {
+    this.assertDriverAccess(driverId, requester);
+    await this.assertDriverExistsAndIsDriver(driverId);
+    await this.getVehicleForDriverOrThrow(driverId, vehicleId);
+
+    const inspection = await this.prisma.vehicleInspection.findFirst({
+      where: { id: inspectionId, vehicleId },
+    });
+    if (!inspection) throw new NotFoundException('Vehicle inspection not found');
+
+    return formatResponse({
+      success: true,
+      data: inspection,
+      message: 'Vehicle inspection retrieved successfully',
+    });
+  }
+
   async createInspection(
     driverId: string,
     vehicleId: string,
@@ -719,6 +805,49 @@ export class VehicleService {
   // -----------------------
   // Insurances
   // -----------------------
+  async listInsurances(
+    driverId: string,
+    vehicleId: string,
+    requester: Requester,
+  ) {
+    this.assertDriverAccess(driverId, requester);
+    await this.assertDriverExistsAndIsDriver(driverId);
+    await this.getVehicleForDriverOrThrow(driverId, vehicleId);
+
+    const insurances = await this.prisma.vehicleInsurance.findMany({
+      where: { vehicleId },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return formatResponse({
+      success: true,
+      data: insurances,
+      message: 'Vehicle insurances retrieved successfully',
+    });
+  }
+
+  async getInsurance(
+    driverId: string,
+    vehicleId: string,
+    insuranceId: string,
+    requester: Requester,
+  ) {
+    this.assertDriverAccess(driverId, requester);
+    await this.assertDriverExistsAndIsDriver(driverId);
+    await this.getVehicleForDriverOrThrow(driverId, vehicleId);
+
+    const insurance = await this.prisma.vehicleInsurance.findFirst({
+      where: { id: insuranceId, vehicleId },
+    });
+    if (!insurance) throw new NotFoundException('Vehicle insurance not found');
+
+    return formatResponse({
+      success: true,
+      data: insurance,
+      message: 'Vehicle insurance retrieved successfully',
+    });
+  }
+
   async createInsurance(
     driverId: string,
     vehicleId: string,
@@ -811,6 +940,49 @@ export class VehicleService {
   // -----------------------
   // PCO documents
   // -----------------------
+  async listPcoDocs(
+    driverId: string,
+    vehicleId: string,
+    requester: Requester,
+  ) {
+    this.assertDriverAccess(driverId, requester);
+    await this.assertDriverExistsAndIsDriver(driverId);
+    await this.getVehicleForDriverOrThrow(driverId, vehicleId);
+
+    const pcoDocs = await this.prisma.vehiclePcoDocument.findMany({
+      where: { vehicleId },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return formatResponse({
+      success: true,
+      data: pcoDocs,
+      message: 'Vehicle PCO documents retrieved successfully',
+    });
+  }
+
+  async getPcoDoc(
+    driverId: string,
+    vehicleId: string,
+    pcoDocId: string,
+    requester: Requester,
+  ) {
+    this.assertDriverAccess(driverId, requester);
+    await this.assertDriverExistsAndIsDriver(driverId);
+    await this.getVehicleForDriverOrThrow(driverId, vehicleId);
+
+    const doc = await this.prisma.vehiclePcoDocument.findFirst({
+      where: { id: pcoDocId, vehicleId },
+    });
+    if (!doc) throw new NotFoundException('Vehicle PCO document not found');
+
+    return formatResponse({
+      success: true,
+      data: doc,
+      message: 'Vehicle PCO document retrieved successfully',
+    });
+  }
+
   async createPcoDoc(
     driverId: string,
     vehicleId: string,
