@@ -101,11 +101,12 @@ export class CarApiService {
     if (!q) return [];
 
     const filters: Array<{ field: string; op: string; val: any }> = [
-      { field: 'name', op: 'like', val: `%${q}%` },
+      { field: 'model', op: 'like', val: `%${q}%` },
     ];
     if (make?.trim()) {
-      // `=` provides exact make filter to reduce ambiguity
-      filters.push({ field: 'make', op: '=', val: make.trim() });
+      // Make values are Title Case in CarAPI; user input might be `toyota`.
+      // Use `like` to keep it case-tolerant while still narrowing results.
+      filters.push({ field: 'make', op: 'like', val: `%${this.normalizeQuery(make)}%` });
     }
 
     const payload = await this.searchModelsV2(filters);
