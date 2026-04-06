@@ -326,6 +326,12 @@ export class VehicleService {
         color: dto.color?.trim(),
         plateNumber: normalizedPlate,
         ...(dto.isActive !== undefined && { isActive: dto.isActive }),
+        ...(dto.permission_letter !== undefined && {
+          permission_letter: dto.permission_letter as unknown as Prisma.InputJsonValue,
+        }),
+        ...(dto.vehicle_schedule !== undefined && {
+          vehicle_schedule: dto.vehicle_schedule as unknown as Prisma.InputJsonValue,
+        }),
       },
     });
 
@@ -421,6 +427,12 @@ export class VehicleService {
     if (dto.year !== undefined) data.year = dto.year;
     if (dto.color !== undefined) data.color = dto.color?.trim() || null;
     if (dto.isActive !== undefined) data.isActive = dto.isActive;
+    if (dto.permission_letter !== undefined) {
+      data.permission_letter = dto.permission_letter as unknown as Prisma.InputJsonValue;
+    }
+    if (dto.vehicle_schedule !== undefined) {
+      data.vehicle_schedule = dto.vehicle_schedule as unknown as Prisma.InputJsonValue;
+    }
 
     if (dto.plateNumber !== undefined) {
       const normalizedPlate = dto.plateNumber.trim().toUpperCase();

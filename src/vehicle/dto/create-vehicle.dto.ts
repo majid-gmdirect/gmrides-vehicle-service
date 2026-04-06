@@ -1,5 +1,24 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { Type } from 'class-transformer';
+import {
+  IsBoolean,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+  ValidateNested,
+} from 'class-validator';
+
+class UploadFilePayloadDto {
+  @ApiProperty({ example: 'file-id' })
+  @IsString()
+  id: string;
+
+  @ApiProperty({ example: 'https://assets.example.com/uploads/file.jpg' })
+  @IsString()
+  url: string;
+}
 
 export class CreateVehicleDto {
   @ApiProperty({ description: 'Vehicle make', example: 'Toyota' })
@@ -33,5 +52,23 @@ export class CreateVehicleDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Permission letter file (from Upload Service)',
+    example: { id: 'file-id', url: 'https://assets.example.com/uploads/permission.pdf' },
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => UploadFilePayloadDto)
+  permission_letter?: UploadFilePayloadDto;
+
+  @ApiPropertyOptional({
+    description: 'Vehicle schedule file (from Upload Service)',
+    example: { id: 'file-id', url: 'https://assets.example.com/uploads/schedule.pdf' },
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => UploadFilePayloadDto)
+  vehicle_schedule?: UploadFilePayloadDto;
 }
 
