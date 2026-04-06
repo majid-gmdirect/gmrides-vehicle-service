@@ -7,6 +7,8 @@ import { VehicleImagesController } from './controllers/vehicle-images.controller
 import { VehicleInspectionsController } from './controllers/vehicle-inspections.controller';
 import { VehicleInsurancesController } from './controllers/vehicle-insurances.controller';
 import { VehiclePcoDocsController } from './controllers/vehicle-pco-docs.controller';
+import { VehicleMetaController } from './controllers/vehicle-meta.controller';
+import { CarApiService } from './car-api.service';
 
 @Module({
   imports: [HttpModule],
@@ -16,9 +18,10 @@ import { VehiclePcoDocsController } from './controllers/vehicle-pco-docs.control
     VehicleInspectionsController,
     VehicleInsurancesController,
     VehiclePcoDocsController,
+    VehicleMetaController,
     AdminVehiclesController,
   ],
-  providers: [VehicleService],
+  providers: [VehicleService, CarApiService],
   exports: [VehicleService],
 })
 export class VehicleModule {}
