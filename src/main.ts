@@ -3,7 +3,7 @@ import { NestFactory } from '@nestjs/core';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
-
+import * as basicAuth from 'express-basic-auth';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.connectMicroservice<MicroserviceOptions>({
@@ -33,7 +33,17 @@ async function bootstrap() {
   );
 
   app.setGlobalPrefix('api/vehicles');
-
+  if (process.env.NODE_ENV === 'production') {
+    app.use(
+      '/api/vehicles/swagger',
+      basicAuth({
+        challenge: true,
+        users: {
+          [process.env.SWAGGER_USER!]: process.env.SWAGGER_PASSWORD!,
+        },
+      }),
+    );
+  }
   // ✅ Swagger Configuration
   const config = new DocumentBuilder()
     .setTitle('Vehicle Service API')
@@ -42,13 +52,13 @@ async function bootstrap() {
     .addBearerAuth() // Adds Authorization header to Swagger UI
     .build();
 
-  const document = SwaggerModule.createDocument(app, config);
+  const document = SwaggerModule.createDocument(app, config, {
+    ignoreGlobalPrefix: false,
+  });
   const enableSwagger = process.env.ENABLE_SWAGGER !== 'false';
   if (enableSwagger) {
     // canonical path
     SwaggerModule.setup('api/vehicles/swagger', app, document);
-    // backwards-compatible typo path (requested)
-    SwaggerModule.setup('api/hehicles/swagger', app, document);
   }
   await app.startAllMicroservices();
   await app.listen(process.env.PORT ?? 4002);
