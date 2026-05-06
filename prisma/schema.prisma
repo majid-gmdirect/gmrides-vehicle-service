@@ -71,10 +71,10 @@ model VehicleImage {
 // ==========================
 
 model VehicleInspection {
-  id             String         @id @default(uuid())
+  id             String          @id @default(uuid())
   vehicleId      String
-  inspectionType InspectionType // MOT, Safety, Emissions, etc.
-  inspectionDate DateTime
+  inspectionType InspectionType? // MOT, Safety, Emissions, etc.
+  inspectionDate DateTime?
   expiryDate     DateTime?
   document       Json?
 
@@ -90,9 +90,9 @@ model VehicleInspection {
 model VehicleInsurance {
   id           String    @id @default(uuid())
   vehicleId    String
-  provider     String
-  policyNumber String
-  startDate    DateTime
+  provider     String?
+  policyNumber String?
+  startDate    DateTime?
   endDate      DateTime?
   document     Json?
 
@@ -106,11 +106,11 @@ model VehicleInsurance {
 // ==========================
 
 model VehiclePcoDocument {
-  id          String   @id @default(uuid())
+  id          String    @id @default(uuid())
   vehicleId   String
   badgeNumber String?
-  issueDate   DateTime
-  expiryDate  DateTime
+  issueDate   DateTime?
+  expiryDate  DateTime?
   document    Json? // PCO badge scan or registration document
 
   vehicle   Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
