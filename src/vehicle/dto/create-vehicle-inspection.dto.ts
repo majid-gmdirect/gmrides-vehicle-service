@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsDateString, IsObject, IsOptional, IsString } from 'class-validator';
+import { DocumentStatus } from '@prisma/client';
+import { IsDateString, IsEnum, IsObject, IsOptional, IsString } from 'class-validator';
 
 export class CreateVehicleInspectionDto {
   @ApiProperty({
@@ -31,5 +32,15 @@ export class CreateVehicleInspectionDto {
   @IsOptional()
   @IsObject()
   document?: Record<string, any>;
+
+  @ApiPropertyOptional({
+    description: 'Admin review status',
+    enum: DocumentStatus,
+    default: DocumentStatus.PENDING,
+    example: DocumentStatus.PENDING,
+  })
+  @IsOptional()
+  @IsEnum(DocumentStatus)
+  status?: DocumentStatus;
 }
 
