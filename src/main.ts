@@ -33,17 +33,6 @@ async function bootstrap() {
   );
 
   app.setGlobalPrefix('api/vehicles');
-  if (process.env.NODE_ENV === 'production') {
-    app.use(
-      '/api/vehicles/swagger',
-      basicAuth({
-        challenge: true,
-        users: {
-          [process.env.SWAGGER_USER!]: process.env.SWAGGER_PASSWORD!,
-        },
-      }),
-    );
-  }
   // ✅ Swagger Configuration
   const config = new DocumentBuilder()
     .setTitle('Vehicle Service API')
@@ -57,6 +46,26 @@ async function bootstrap() {
   });
   const enableSwagger = process.env.ENABLE_SWAGGER !== 'false';
   if (enableSwagger) {
+    if (process.env.NODE_ENV === 'production') {
+      const swaggerUser = process.env.SWAGGER_USER;
+      const swaggerPassword = process.env.SWAGGER_PASSWORD;
+
+      if (!swaggerUser || !swaggerPassword) {
+        throw new Error(
+          'Swagger basic-auth is enabled in production, but SWAGGER_USER/SWAGGER_PASSWORD are not set.',
+        );
+      }
+
+      app.use(
+        '/api/vehicles/swagger',
+        basicAuth({
+          challenge: true,
+          users: {
+            [swaggerUser]: swaggerPassword,
+          },
+        }),
+      );
+    }
     // canonical path
     SwaggerModule.setup('api/vehicles/swagger', app, document);
   }
