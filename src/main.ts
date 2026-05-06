@@ -44,32 +44,41 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config, {
     ignoreGlobalPrefix: false,
   });
-  const enableSwagger = process.env.ENABLE_SWAGGER !== 'false';
+  let enableSwagger = process.env.ENABLE_SWAGGER !== 'false';
   if (enableSwagger) {
     if (process.env.NODE_ENV === 'production') {
       const swaggerUser = process.env.SWAGGER_USER;
       const swaggerPassword = process.env.SWAGGER_PASSWORD;
 
       if (!swaggerUser || !swaggerPassword) {
-        throw new Error(
-          'Swagger basic-auth is enabled in production, but SWAGGER_USER/SWAGGER_PASSWORD are not set.',
+        enableSwagger = false;
+        console.warn(
+          '[vehicle-service] Swagger disabled: SWAGGER_USER/SWAGGER_PASSWORD are not set in production.',
         );
       }
 
-      app.use(
-        '/api/vehicles/swagger',
-        basicAuth({
-          challenge: true,
-          users: {
-            [swaggerUser]: swaggerPassword,
-          },
-        }),
-      );
+      if (enableSwagger) {
+        app.use(
+          '/api/vehicles/swagger',
+          basicAuth({
+            challenge: true,
+            users: {
+              [swaggerUser!]: swaggerPassword!,
+            },
+          }),
+        );
+      }
     }
-    // canonical path
-    SwaggerModule.setup('api/vehicles/swagger', app, document);
+    if (enableSwagger) {
+      // canonical path
+      SwaggerModule.setup('api/vehicles/swagger', app, document);
+    }
   }
   await app.startAllMicroservices();
   await app.listen(process.env.PORT ?? 4002);
 }
-bootstrap();
+bootstrap().catch((err) => {
+  // eslint-disable-next-line no-console
+  console.error('[vehicle-service] Failed to start', err);
+  process.exit(1);
+});
