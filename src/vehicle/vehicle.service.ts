@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
-import { Prisma, InspectionType } from '@prisma/client';
+import { Prisma, InspectionType, DocumentStatus } from '@prisma/client';
 import { lastValueFrom } from 'rxjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { formatResponse } from '../common/format-response.util';
@@ -733,6 +733,8 @@ export class VehicleService {
         vehicleId,
         inspectionType,
         inspectionDate: toPrismaDateTime(dto.inspectionDate),
+        ...(dto.status !== undefined && { status: dto.status as DocumentStatus }),
+        ...(dto.rejectedReason !== undefined && { rejectedReason: dto.rejectedReason }),
         ...(dto.expiryDate !== undefined && {
           expiryDate: toPrismaDateTime(dto.expiryDate),
         }),
@@ -771,6 +773,12 @@ export class VehicleService {
     }
     if (dto.inspectionDate !== undefined) {
       data.inspectionDate = toPrismaDateTime(dto.inspectionDate);
+    }
+    if (dto.status !== undefined) {
+      data.status = dto.status as DocumentStatus;
+    }
+    if (dto.rejectedReason !== undefined) {
+      data.rejectedReason = dto.rejectedReason;
     }
     if (dto.expiryDate !== undefined) {
       data.expiryDate = dto.expiryDate ? toPrismaDateTime(dto.expiryDate) : null;
@@ -876,6 +884,8 @@ export class VehicleService {
         provider: dto.provider,
         policyNumber: dto.policyNumber,
         startDate: toPrismaDateTime(dto.startDate),
+        ...(dto.status !== undefined && { status: dto.status as DocumentStatus }),
+        ...(dto.rejectedReason !== undefined && { rejectedReason: dto.rejectedReason }),
         ...(dto.endDate !== undefined && { endDate: toPrismaDateTime(dto.endDate) }),
         ...(dto.document !== undefined && {
           document: dto.document as Prisma.InputJsonValue,
@@ -911,6 +921,8 @@ export class VehicleService {
     if (dto.policyNumber !== undefined) data.policyNumber = dto.policyNumber;
     if (dto.startDate !== undefined) data.startDate = toPrismaDateTime(dto.startDate);
     if (dto.endDate !== undefined) data.endDate = dto.endDate ? toPrismaDateTime(dto.endDate) : null;
+    if (dto.status !== undefined) data.status = dto.status as DocumentStatus;
+    if (dto.rejectedReason !== undefined) data.rejectedReason = dto.rejectedReason;
     if (dto.document !== undefined)
       data.document = dto.document as Prisma.InputJsonValue;
 
@@ -1011,6 +1023,8 @@ export class VehicleService {
         ...(dto.badgeNumber !== undefined && { badgeNumber: dto.badgeNumber }),
         issueDate: toPrismaDateTime(dto.issueDate),
         expiryDate: toPrismaDateTime(dto.expiryDate),
+        ...(dto.status !== undefined && { status: dto.status as DocumentStatus }),
+        ...(dto.rejectedReason !== undefined && { rejectedReason: dto.rejectedReason }),
         ...(dto.document !== undefined && {
           document: dto.document as Prisma.InputJsonValue,
         }),
@@ -1044,6 +1058,8 @@ export class VehicleService {
     if (dto.badgeNumber !== undefined) data.badgeNumber = dto.badgeNumber;
     if (dto.issueDate !== undefined) data.issueDate = toPrismaDateTime(dto.issueDate);
     if (dto.expiryDate !== undefined) data.expiryDate = toPrismaDateTime(dto.expiryDate);
+    if (dto.status !== undefined) data.status = dto.status as DocumentStatus;
+    if (dto.rejectedReason !== undefined) data.rejectedReason = dto.rejectedReason;
     if (dto.document !== undefined) data.document = dto.document as Prisma.InputJsonValue;
 
     const doc = await this.prisma.vehiclePcoDocument.update({

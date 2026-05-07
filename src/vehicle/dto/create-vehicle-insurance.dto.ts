@@ -37,5 +37,13 @@ export class CreateVehicleInsuranceDto {
   @IsOptional()
   @IsEnum(DocumentStatus)
   status?: DocumentStatus;
+
+  @ApiPropertyOptional({
+    description: 'Rejection reason (required when status is REJECTED)',
+    example: 'Policy number does not match the document',
+  })
+  @IsOptional()
+  @IsString()
+  rejectedReason?: string;
 }
 

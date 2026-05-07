@@ -42,5 +42,13 @@ export class CreateVehicleInspectionDto {
   @IsOptional()
   @IsEnum(DocumentStatus)
   status?: DocumentStatus;
+
+  @ApiPropertyOptional({
+    description: 'Rejection reason (required when status is REJECTED)',
+    example: 'Document is unreadable',
+  })
+  @IsOptional()
+  @IsString()
+  rejectedReason?: string;
 }
 

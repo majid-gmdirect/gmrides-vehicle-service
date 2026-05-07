@@ -33,5 +33,13 @@ export class CreateVehiclePcoDocumentDto {
   @IsOptional()
   @IsEnum(DocumentStatus)
   status?: DocumentStatus;
+
+  @ApiPropertyOptional({
+    description: 'Rejection reason (required when status is REJECTED)',
+    example: 'Expired document',
+  })
+  @IsOptional()
+  @IsString()
+  rejectedReason?: string;
 }
 
