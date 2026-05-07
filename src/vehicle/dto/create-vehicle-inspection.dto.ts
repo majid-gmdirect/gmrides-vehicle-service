@@ -3,19 +3,21 @@ import { DocumentStatus } from '@prisma/client';
 import { IsDateString, IsEnum, IsObject, IsOptional, IsString } from 'class-validator';
 
 export class CreateVehicleInspectionDto {
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: 'Inspection type',
     example: 'MOT',
   })
+  @IsOptional()
   @IsString()
-  inspectionType: string;
+  inspectionType?: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: 'Inspection date (ISO 8601 date or datetime)',
     example: '2026-03-01',
   })
+  @IsOptional()
   @IsDateString()
-  inspectionDate: string;
+  inspectionDate?: string;
 
   @ApiPropertyOptional({
     description: 'Expiry date (ISO 8601 date or datetime)',

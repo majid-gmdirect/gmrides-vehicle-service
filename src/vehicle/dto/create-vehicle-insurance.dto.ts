@@ -3,17 +3,20 @@ import { DocumentStatus } from '@prisma/client';
 import { IsDateString, IsEnum, IsObject, IsOptional, IsString } from 'class-validator';
 
 export class CreateVehicleInsuranceDto {
-  @ApiProperty({ description: 'Insurance provider', example: 'AXA' })
+  @ApiPropertyOptional({ description: 'Insurance provider', example: 'AXA' })
+  @IsOptional()
   @IsString()
-  provider: string;
+  provider?: string;
 
-  @ApiProperty({ description: 'Policy number', example: 'POL-123456' })
+  @ApiPropertyOptional({ description: 'Policy number', example: 'POL-123456' })
+  @IsOptional()
   @IsString()
-  policyNumber: string;
+  policyNumber?: string;
 
-  @ApiProperty({ description: 'Start date', example: '2026-01-01' })
+  @ApiPropertyOptional({ description: 'Start date', example: '2026-01-01' })
+  @IsOptional()
   @IsDateString()
-  startDate: string;
+  startDate?: string;
 
   @ApiPropertyOptional({ description: 'End date', example: '2027-01-01' })
   @IsOptional()

@@ -731,8 +731,10 @@ export class VehicleService {
     const inspection = await this.prisma.vehicleInspection.create({
       data: {
         vehicleId,
-        inspectionType,
-        inspectionDate: toPrismaDateTime(dto.inspectionDate),
+        ...(dto.inspectionType !== undefined && { inspectionType }),
+        ...(dto.inspectionDate !== undefined && {
+          inspectionDate: toPrismaDateTime(dto.inspectionDate),
+        }),
         ...(dto.status !== undefined && { status: dto.status as DocumentStatus }),
         ...(dto.rejectedReason !== undefined && { rejectedReason: dto.rejectedReason }),
         ...(dto.expiryDate !== undefined && {
@@ -881,9 +883,11 @@ export class VehicleService {
     const insurance = await this.prisma.vehicleInsurance.create({
       data: {
         vehicleId,
-        provider: dto.provider,
-        policyNumber: dto.policyNumber,
-        startDate: toPrismaDateTime(dto.startDate),
+        ...(dto.provider !== undefined && { provider: dto.provider }),
+        ...(dto.policyNumber !== undefined && { policyNumber: dto.policyNumber }),
+        ...(dto.startDate !== undefined && {
+          startDate: toPrismaDateTime(dto.startDate),
+        }),
         ...(dto.status !== undefined && { status: dto.status as DocumentStatus }),
         ...(dto.rejectedReason !== undefined && { rejectedReason: dto.rejectedReason }),
         ...(dto.endDate !== undefined && { endDate: toPrismaDateTime(dto.endDate) }),
@@ -1021,8 +1025,12 @@ export class VehicleService {
       data: {
         vehicleId,
         ...(dto.badgeNumber !== undefined && { badgeNumber: dto.badgeNumber }),
-        issueDate: toPrismaDateTime(dto.issueDate),
-        expiryDate: toPrismaDateTime(dto.expiryDate),
+        ...(dto.issueDate !== undefined && {
+          issueDate: toPrismaDateTime(dto.issueDate),
+        }),
+        ...(dto.expiryDate !== undefined && {
+          expiryDate: toPrismaDateTime(dto.expiryDate),
+        }),
         ...(dto.status !== undefined && { status: dto.status as DocumentStatus }),
         ...(dto.rejectedReason !== undefined && { rejectedReason: dto.rejectedReason }),
         ...(dto.document !== undefined && {

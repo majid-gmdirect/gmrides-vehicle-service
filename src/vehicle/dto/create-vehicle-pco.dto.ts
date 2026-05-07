@@ -8,13 +8,15 @@ export class CreateVehiclePcoDocumentDto {
   @IsString()
   badgeNumber?: string;
 
-  @ApiProperty({ description: 'Issue date', example: '2026-01-01' })
+  @ApiPropertyOptional({ description: 'Issue date', example: '2026-01-01' })
+  @IsOptional()
   @IsDateString()
-  issueDate: string;
+  issueDate?: string;
 
-  @ApiProperty({ description: 'Expiry date', example: '2027-01-01' })
+  @ApiPropertyOptional({ description: 'Expiry date', example: '2027-01-01' })
+  @IsOptional()
   @IsDateString()
-  expiryDate: string;
+  expiryDate?: string;
 
   @ApiPropertyOptional({
     description: 'PCO document payload (Upload Service)',
