@@ -8,6 +8,10 @@ import { VehicleInspectionsController } from './controllers/vehicle-inspections.
 import { VehicleInsurancesController } from './controllers/vehicle-insurances.controller';
 import { VehiclePcoDocsController } from './controllers/vehicle-pco-docs.controller';
 import { VehicleMetaController } from './controllers/vehicle-meta.controller';
+import { VehiclePermissionLettersController } from './controllers/vehicle-permission-letters.controller';
+import { AdminVehiclePermissionLettersController } from './controllers/admin-vehicle-permission-letters.controller';
+import { VehicleSchedulesController } from './controllers/vehicle-schedules.controller';
+import { AdminVehicleSchedulesController } from './controllers/admin-vehicle-schedules.controller';
 import { CarApiService } from './car-api.service';
 
 @Module({
@@ -18,8 +22,12 @@ import { CarApiService } from './car-api.service';
     VehicleInspectionsController,
     VehicleInsurancesController,
     VehiclePcoDocsController,
+    VehiclePermissionLettersController,
+    VehicleSchedulesController,
     VehicleMetaController,
     AdminVehiclesController,
+    AdminVehiclePermissionLettersController,
+    AdminVehicleSchedulesController,
   ],
   providers: [VehicleService, CarApiService],
   exports: [VehicleService],

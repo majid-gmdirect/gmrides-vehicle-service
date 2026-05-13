@@ -52,6 +52,8 @@ model Vehicle {
   inspections VehicleInspection[]
   insurances  VehicleInsurance[]
   pcoDocs     VehiclePcoDocument[]
+  permissionLetters PermissionLetter[]
+  vehicleSchedules VehicleSchedule[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -72,10 +74,6 @@ model VehicleImage {
   createdAt DateTime @default(now())
 }
 
-// ==========================
-// VEHICLE INSPECTIONS / MOT
-// ==========================
-
 model VehicleInspection {
   id             String          @id @default(uuid())
   vehicleId      String
@@ -89,10 +87,6 @@ model VehicleInspection {
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
 }
-
-// ==========================
-// VEHICLE INSURANCE
-// ==========================
 
 model VehicleInsurance {
   id             String         @id @default(uuid())
@@ -109,10 +103,6 @@ model VehicleInsurance {
   updatedAt      DateTime       @updatedAt
 }
 
-// ==========================
-// VEHICLE PCO DOCUMENTS
-// ==========================
-
 model VehiclePcoDocument {
   id             String         @id @default(uuid())
   vehicleId      String
@@ -125,4 +115,27 @@ model VehiclePcoDocument {
   vehicle        Vehicle        @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
+}
+
+
+model PermissionLetter {
+  id String @id @default(uuid())
+  vehicleId String
+  document Json?
+  status DocumentStatus @default(PENDING)
+  rejectedReason String?
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model VehicleSchedule {
+  id String @id @default(uuid())
+  vehicleId String
+  document Json?
+  status DocumentStatus @default(PENDING)
+  rejectedReason String?
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

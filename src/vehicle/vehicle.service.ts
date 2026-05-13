@@ -15,13 +15,19 @@ import {
   CreateVehicleInspectionDto,
   CreateVehicleInsuranceDto,
   CreateVehiclePcoDocumentDto,
+  CreatePermissionLetterDto,
+  CreateVehicleScheduleDto,
   ListVehiclesQueryDto,
+  AdminReviewPermissionLetterDto,
+  AdminReviewVehicleScheduleDto,
   UpdateVehicleActiveDto,
   UpdateVehicleApprovedDto,
   UpdateVehicleDto,
   UpdateVehicleInspectionDto,
   UpdateVehicleInsuranceDto,
   UpdateVehiclePcoDocumentDto,
+  UpdatePermissionLetterDto,
+  UpdateVehicleScheduleDto,
 } from './dto';
 
 type Requester = { userId: string; role?: string };
@@ -1102,6 +1108,364 @@ export class VehicleService {
       success: true,
       data: null,
       message: 'Vehicle PCO document deleted successfully',
+    });
+  }
+
+  // -----------------------
+  // Permission letters
+  // -----------------------
+  async listPermissionLetters(driverId: string, vehicleId: string, requester: Requester) {
+    this.assertDriverAccess(driverId, requester);
+    await this.assertDriverExistsAndIsDriver(driverId);
+    await this.getVehicleForDriverOrThrow(driverId, vehicleId);
+
+    const rows = await this.prisma.permissionLetter.findMany({
+      where: { vehicleId },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return formatResponse({
+      success: true,
+      data: rows,
+      message: 'Permission letters retrieved successfully',
+    });
+  }
+
+  async getPermissionLetter(
+    driverId: string,
+    vehicleId: string,
+    permissionLetterId: string,
+    requester: Requester,
+  ) {
+    this.assertDriverAccess(driverId, requester);
+    await this.assertDriverExistsAndIsDriver(driverId);
+    await this.getVehicleForDriverOrThrow(driverId, vehicleId);
+
+    const row = await this.prisma.permissionLetter.findFirst({
+      where: { id: permissionLetterId, vehicleId },
+    });
+    if (!row) throw new NotFoundException('Permission letter not found');
+
+    return formatResponse({
+      success: true,
+      data: row,
+      message: 'Permission letter retrieved successfully',
+    });
+  }
+
+  async createPermissionLetter(
+    driverId: string,
+    vehicleId: string,
+    dto: CreatePermissionLetterDto,
+    requester: Requester,
+  ) {
+    this.assertDriverAccess(driverId, requester);
+    await this.assertDriverExistsAndIsDriver(driverId);
+    await this.getVehicleForDriverOrThrow(driverId, vehicleId);
+
+    const row = await this.prisma.permissionLetter.create({
+      data: {
+        vehicleId,
+        ...(dto.document !== undefined && { document: dto.document as Prisma.InputJsonValue }),
+      },
+    });
+
+    return formatResponse({
+      success: true,
+      data: row,
+      message: 'Permission letter created successfully',
+    });
+  }
+
+  async updatePermissionLetter(
+    driverId: string,
+    vehicleId: string,
+    permissionLetterId: string,
+    dto: UpdatePermissionLetterDto,
+    requester: Requester,
+  ) {
+    this.assertDriverAccess(driverId, requester);
+    await this.assertDriverExistsAndIsDriver(driverId);
+    await this.getVehicleForDriverOrThrow(driverId, vehicleId);
+
+    const existing = await this.prisma.permissionLetter.findFirst({
+      where: { id: permissionLetterId, vehicleId },
+    });
+    if (!existing) throw new NotFoundException('Permission letter not found');
+
+    const data: Prisma.PermissionLetterUpdateInput = {};
+    if (dto.document !== undefined) data.document = dto.document as Prisma.InputJsonValue;
+
+    const row = await this.prisma.permissionLetter.update({
+      where: { id: permissionLetterId },
+      data,
+    });
+
+    return formatResponse({
+      success: true,
+      data: row,
+      message: 'Permission letter updated successfully',
+    });
+  }
+
+  async deletePermissionLetter(
+    driverId: string,
+    vehicleId: string,
+    permissionLetterId: string,
+    requester: Requester,
+  ) {
+    this.assertDriverAccess(driverId, requester);
+    await this.assertDriverExistsAndIsDriver(driverId);
+    await this.getVehicleForDriverOrThrow(driverId, vehicleId);
+
+    const existing = await this.prisma.permissionLetter.findFirst({
+      where: { id: permissionLetterId, vehicleId },
+    });
+    if (!existing) throw new NotFoundException('Permission letter not found');
+
+    await this.prisma.permissionLetter.delete({ where: { id: permissionLetterId } });
+
+    return formatResponse({
+      success: true,
+      data: null,
+      message: 'Permission letter deleted successfully',
+    });
+  }
+
+  async adminListPermissionLetters(vehicleId: string) {
+    await this.getVehicleOrThrow(vehicleId);
+    const rows = await this.prisma.permissionLetter.findMany({
+      where: { vehicleId },
+      orderBy: { createdAt: 'desc' },
+    });
+    return formatResponse({
+      success: true,
+      data: rows,
+      message: 'Permission letters retrieved successfully',
+    });
+  }
+
+  async adminGetPermissionLetter(vehicleId: string, permissionLetterId: string) {
+    await this.getVehicleOrThrow(vehicleId);
+    const row = await this.prisma.permissionLetter.findFirst({
+      where: { id: permissionLetterId, vehicleId },
+    });
+    if (!row) throw new NotFoundException('Permission letter not found');
+    return formatResponse({
+      success: true,
+      data: row,
+      message: 'Permission letter retrieved successfully',
+    });
+  }
+
+  async adminReviewPermissionLetter(
+    vehicleId: string,
+    permissionLetterId: string,
+    dto: AdminReviewPermissionLetterDto,
+    requester: Requester,
+  ) {
+    if (requester.role !== 'ADMIN') {
+      throw new ForbiddenException('Admin access required');
+    }
+    await this.getVehicleOrThrow(vehicleId);
+
+    const existing = await this.prisma.permissionLetter.findFirst({
+      where: { id: permissionLetterId, vehicleId },
+    });
+    if (!existing) throw new NotFoundException('Permission letter not found');
+
+    const data: Prisma.PermissionLetterUpdateInput = {};
+    if (dto.status !== undefined) data.status = dto.status as DocumentStatus;
+    if (dto.rejectedReason !== undefined) data.rejectedReason = dto.rejectedReason;
+
+    const row = await this.prisma.permissionLetter.update({
+      where: { id: permissionLetterId },
+      data,
+    });
+
+    return formatResponse({
+      success: true,
+      data: row,
+      message: 'Permission letter reviewed successfully',
+    });
+  }
+
+  // -----------------------
+  // Vehicle schedules
+  // -----------------------
+  async listVehicleSchedules(driverId: string, vehicleId: string, requester: Requester) {
+    this.assertDriverAccess(driverId, requester);
+    await this.assertDriverExistsAndIsDriver(driverId);
+    await this.getVehicleForDriverOrThrow(driverId, vehicleId);
+
+    const rows = await this.prisma.vehicleSchedule.findMany({
+      where: { vehicleId },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return formatResponse({
+      success: true,
+      data: rows,
+      message: 'Vehicle schedules retrieved successfully',
+    });
+  }
+
+  async getVehicleSchedule(
+    driverId: string,
+    vehicleId: string,
+    scheduleId: string,
+    requester: Requester,
+  ) {
+    this.assertDriverAccess(driverId, requester);
+    await this.assertDriverExistsAndIsDriver(driverId);
+    await this.getVehicleForDriverOrThrow(driverId, vehicleId);
+
+    const row = await this.prisma.vehicleSchedule.findFirst({
+      where: { id: scheduleId, vehicleId },
+    });
+    if (!row) throw new NotFoundException('Vehicle schedule not found');
+
+    return formatResponse({
+      success: true,
+      data: row,
+      message: 'Vehicle schedule retrieved successfully',
+    });
+  }
+
+  async createVehicleSchedule(
+    driverId: string,
+    vehicleId: string,
+    dto: CreateVehicleScheduleDto,
+    requester: Requester,
+  ) {
+    this.assertDriverAccess(driverId, requester);
+    await this.assertDriverExistsAndIsDriver(driverId);
+    await this.getVehicleForDriverOrThrow(driverId, vehicleId);
+
+    const row = await this.prisma.vehicleSchedule.create({
+      data: {
+        vehicleId,
+        ...(dto.document !== undefined && { document: dto.document as Prisma.InputJsonValue }),
+      },
+    });
+
+    return formatResponse({
+      success: true,
+      data: row,
+      message: 'Vehicle schedule created successfully',
+    });
+  }
+
+  async updateVehicleSchedule(
+    driverId: string,
+    vehicleId: string,
+    scheduleId: string,
+    dto: UpdateVehicleScheduleDto,
+    requester: Requester,
+  ) {
+    this.assertDriverAccess(driverId, requester);
+    await this.assertDriverExistsAndIsDriver(driverId);
+    await this.getVehicleForDriverOrThrow(driverId, vehicleId);
+
+    const existing = await this.prisma.vehicleSchedule.findFirst({
+      where: { id: scheduleId, vehicleId },
+    });
+    if (!existing) throw new NotFoundException('Vehicle schedule not found');
+
+    const data: Prisma.VehicleScheduleUpdateInput = {};
+    if (dto.document !== undefined) data.document = dto.document as Prisma.InputJsonValue;
+
+    const row = await this.prisma.vehicleSchedule.update({
+      where: { id: scheduleId },
+      data,
+    });
+
+    return formatResponse({
+      success: true,
+      data: row,
+      message: 'Vehicle schedule updated successfully',
+    });
+  }
+
+  async deleteVehicleSchedule(
+    driverId: string,
+    vehicleId: string,
+    scheduleId: string,
+    requester: Requester,
+  ) {
+    this.assertDriverAccess(driverId, requester);
+    await this.assertDriverExistsAndIsDriver(driverId);
+    await this.getVehicleForDriverOrThrow(driverId, vehicleId);
+
+    const existing = await this.prisma.vehicleSchedule.findFirst({
+      where: { id: scheduleId, vehicleId },
+    });
+    if (!existing) throw new NotFoundException('Vehicle schedule not found');
+
+    await this.prisma.vehicleSchedule.delete({ where: { id: scheduleId } });
+
+    return formatResponse({
+      success: true,
+      data: null,
+      message: 'Vehicle schedule deleted successfully',
+    });
+  }
+
+  async adminListVehicleSchedules(vehicleId: string) {
+    await this.getVehicleOrThrow(vehicleId);
+    const rows = await this.prisma.vehicleSchedule.findMany({
+      where: { vehicleId },
+      orderBy: { createdAt: 'desc' },
+    });
+    return formatResponse({
+      success: true,
+      data: rows,
+      message: 'Vehicle schedules retrieved successfully',
+    });
+  }
+
+  async adminGetVehicleSchedule(vehicleId: string, scheduleId: string) {
+    await this.getVehicleOrThrow(vehicleId);
+    const row = await this.prisma.vehicleSchedule.findFirst({
+      where: { id: scheduleId, vehicleId },
+    });
+    if (!row) throw new NotFoundException('Vehicle schedule not found');
+    return formatResponse({
+      success: true,
+      data: row,
+      message: 'Vehicle schedule retrieved successfully',
+    });
+  }
+
+  async adminReviewVehicleSchedule(
+    vehicleId: string,
+    scheduleId: string,
+    dto: AdminReviewVehicleScheduleDto,
+    requester: Requester,
+  ) {
+    if (requester.role !== 'ADMIN') {
+      throw new ForbiddenException('Admin access required');
+    }
+    await this.getVehicleOrThrow(vehicleId);
+
+    const existing = await this.prisma.vehicleSchedule.findFirst({
+      where: { id: scheduleId, vehicleId },
+    });
+    if (!existing) throw new NotFoundException('Vehicle schedule not found');
+
+    const data: Prisma.VehicleScheduleUpdateInput = {};
+    if (dto.status !== undefined) data.status = dto.status as DocumentStatus;
+    if (dto.rejectedReason !== undefined) data.rejectedReason = dto.rejectedReason;
+
+    const row = await this.prisma.vehicleSchedule.update({
+      where: { id: scheduleId },
+      data,
+    });
+
+    return formatResponse({
+      success: true,
+      data: row,
+      message: 'Vehicle schedule reviewed successfully',
     });
   }
 }

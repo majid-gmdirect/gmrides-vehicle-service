@@ -15,10 +15,16 @@ import {
   CreateVehicleInspectionDto,
   CreateVehicleInsuranceDto,
   CreateVehiclePcoDocumentDto,
+  CreatePermissionLetterDto,
+  AdminReviewPermissionLetterDto,
+  CreateVehicleScheduleDto,
+  AdminReviewVehicleScheduleDto,
   ListVehiclesQueryDto,
   UpdateVehicleInspectionDto,
   UpdateVehicleInsuranceDto,
   UpdateVehiclePcoDocumentDto,
+  UpdatePermissionLetterDto,
+  UpdateVehicleScheduleDto,
   UpdateVehicleDto,
   UpdateVehicleActiveDto,
   UpdateVehicleApprovedDto,
@@ -387,6 +393,252 @@ export function GetVehiclePcoDocSwagger(): MethodDecorator {
     ApiParam({ name: 'pcoDocId', type: String, description: 'PCO document ID' }),
     ApiOkResponse({ description: 'Vehicle PCO document retrieved successfully' }),
     ApiNotFoundResponse({ description: 'Vehicle or PCO document not found' }),
+    ApiForbiddenResponse({ description: 'Access denied' }),
+  );
+}
+
+// -----------------------
+// Permission letters
+// -----------------------
+export function ListPermissionLettersSwagger(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({ summary: 'List permission letters for a vehicle (driver)' }),
+    ApiParam({ name: 'driverId', type: String, description: 'Driver user ID' }),
+    ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
+    ApiOkResponse({ description: 'Permission letters retrieved successfully' }),
+    ApiNotFoundResponse({ description: 'Vehicle not found' }),
+    ApiForbiddenResponse({ description: 'Access denied' }),
+  );
+}
+
+export function GetPermissionLetterSwagger(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({ summary: 'Get a permission letter (driver)' }),
+    ApiParam({ name: 'driverId', type: String, description: 'Driver user ID' }),
+    ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
+    ApiParam({
+      name: 'permissionLetterId',
+      type: String,
+      description: 'Permission letter ID',
+    }),
+    ApiOkResponse({ description: 'Permission letter retrieved successfully' }),
+    ApiNotFoundResponse({ description: 'Permission letter not found' }),
+    ApiForbiddenResponse({ description: 'Access denied' }),
+  );
+}
+
+export function CreatePermissionLetterSwagger(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({
+      summary: 'Create a permission letter (driver)',
+      description:
+        'Drivers upload/update documents. Admin review (status/rejectedReason) is done via admin endpoints.',
+    }),
+    ApiParam({ name: 'driverId', type: String, description: 'Driver user ID' }),
+    ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
+    ApiBody({ type: CreatePermissionLetterDto }),
+    ApiOkResponse({ description: 'Permission letter created successfully' }),
+    ApiNotFoundResponse({ description: 'Vehicle not found' }),
+    ApiForbiddenResponse({ description: 'Access denied' }),
+  );
+}
+
+export function UpdatePermissionLetterSwagger(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({
+      summary: 'Update a permission letter (driver)',
+      description: 'Drivers can update the document; review status is admin-only.',
+    }),
+    ApiParam({ name: 'driverId', type: String, description: 'Driver user ID' }),
+    ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
+    ApiParam({
+      name: 'permissionLetterId',
+      type: String,
+      description: 'Permission letter ID',
+    }),
+    ApiBody({ type: UpdatePermissionLetterDto }),
+    ApiOkResponse({ description: 'Permission letter updated successfully' }),
+    ApiNotFoundResponse({ description: 'Permission letter not found' }),
+    ApiForbiddenResponse({ description: 'Access denied' }),
+  );
+}
+
+export function DeletePermissionLetterSwagger(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({ summary: 'Delete a permission letter (driver)' }),
+    ApiParam({ name: 'driverId', type: String, description: 'Driver user ID' }),
+    ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
+    ApiParam({
+      name: 'permissionLetterId',
+      type: String,
+      description: 'Permission letter ID',
+    }),
+    ApiOkResponse({ description: 'Permission letter deleted successfully' }),
+    ApiNotFoundResponse({ description: 'Permission letter not found' }),
+    ApiForbiddenResponse({ description: 'Access denied' }),
+  );
+}
+
+export function AdminListPermissionLettersSwagger(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({ summary: 'Admin: list vehicle permission letters' }),
+    ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
+    ApiOkResponse({ description: 'Permission letters retrieved successfully' }),
+    ApiNotFoundResponse({ description: 'Vehicle not found' }),
+    ApiForbiddenResponse({ description: 'Access denied' }),
+  );
+}
+
+export function AdminGetPermissionLetterSwagger(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({ summary: 'Admin: get vehicle permission letter' }),
+    ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
+    ApiParam({
+      name: 'permissionLetterId',
+      type: String,
+      description: 'Permission letter ID',
+    }),
+    ApiOkResponse({ description: 'Permission letter retrieved successfully' }),
+    ApiNotFoundResponse({ description: 'Permission letter not found' }),
+    ApiForbiddenResponse({ description: 'Access denied' }),
+  );
+}
+
+export function AdminReviewPermissionLetterSwagger(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({
+      summary: 'Admin: review a permission letter (set status / rejectedReason)',
+    }),
+    ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
+    ApiParam({
+      name: 'permissionLetterId',
+      type: String,
+      description: 'Permission letter ID',
+    }),
+    ApiBody({ type: AdminReviewPermissionLetterDto }),
+    ApiOkResponse({ description: 'Permission letter reviewed successfully' }),
+    ApiNotFoundResponse({ description: 'Permission letter not found' }),
+    ApiForbiddenResponse({ description: 'Access denied' }),
+  );
+}
+
+// -----------------------
+// Vehicle schedules
+// -----------------------
+export function ListVehicleSchedulesSwagger(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({ summary: 'List vehicle schedules (driver)' }),
+    ApiParam({ name: 'driverId', type: String, description: 'Driver user ID' }),
+    ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
+    ApiOkResponse({ description: 'Vehicle schedules retrieved successfully' }),
+    ApiNotFoundResponse({ description: 'Vehicle not found' }),
+    ApiForbiddenResponse({ description: 'Access denied' }),
+  );
+}
+
+export function GetVehicleScheduleSwagger(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({ summary: 'Get a vehicle schedule (driver)' }),
+    ApiParam({ name: 'driverId', type: String, description: 'Driver user ID' }),
+    ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
+    ApiParam({ name: 'scheduleId', type: String, description: 'Schedule ID' }),
+    ApiOkResponse({ description: 'Vehicle schedule retrieved successfully' }),
+    ApiNotFoundResponse({ description: 'Vehicle schedule not found' }),
+    ApiForbiddenResponse({ description: 'Access denied' }),
+  );
+}
+
+export function CreateVehicleScheduleSwagger(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({
+      summary: 'Create a vehicle schedule (driver)',
+      description:
+        'Drivers upload/update documents. Admin review (status/rejectedReason) is done via admin endpoints.',
+    }),
+    ApiParam({ name: 'driverId', type: String, description: 'Driver user ID' }),
+    ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
+    ApiBody({ type: CreateVehicleScheduleDto }),
+    ApiOkResponse({ description: 'Vehicle schedule created successfully' }),
+    ApiNotFoundResponse({ description: 'Vehicle not found' }),
+    ApiForbiddenResponse({ description: 'Access denied' }),
+  );
+}
+
+export function UpdateVehicleScheduleSwagger(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({
+      summary: 'Update a vehicle schedule (driver)',
+      description: 'Drivers can update the document; review status is admin-only.',
+    }),
+    ApiParam({ name: 'driverId', type: String, description: 'Driver user ID' }),
+    ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
+    ApiParam({ name: 'scheduleId', type: String, description: 'Schedule ID' }),
+    ApiBody({ type: UpdateVehicleScheduleDto }),
+    ApiOkResponse({ description: 'Vehicle schedule updated successfully' }),
+    ApiNotFoundResponse({ description: 'Vehicle schedule not found' }),
+    ApiForbiddenResponse({ description: 'Access denied' }),
+  );
+}
+
+export function DeleteVehicleScheduleSwagger(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({ summary: 'Delete a vehicle schedule (driver)' }),
+    ApiParam({ name: 'driverId', type: String, description: 'Driver user ID' }),
+    ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
+    ApiParam({ name: 'scheduleId', type: String, description: 'Schedule ID' }),
+    ApiOkResponse({ description: 'Vehicle schedule deleted successfully' }),
+    ApiNotFoundResponse({ description: 'Vehicle schedule not found' }),
+    ApiForbiddenResponse({ description: 'Access denied' }),
+  );
+}
+
+export function AdminListVehicleSchedulesSwagger(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({ summary: 'Admin: list vehicle schedules' }),
+    ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
+    ApiOkResponse({ description: 'Vehicle schedules retrieved successfully' }),
+    ApiNotFoundResponse({ description: 'Vehicle not found' }),
+    ApiForbiddenResponse({ description: 'Access denied' }),
+  );
+}
+
+export function AdminGetVehicleScheduleSwagger(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({ summary: 'Admin: get vehicle schedule' }),
+    ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
+    ApiParam({ name: 'scheduleId', type: String, description: 'Schedule ID' }),
+    ApiOkResponse({ description: 'Vehicle schedule retrieved successfully' }),
+    ApiNotFoundResponse({ description: 'Vehicle schedule not found' }),
+    ApiForbiddenResponse({ description: 'Access denied' }),
+  );
+}
+
+export function AdminReviewVehicleScheduleSwagger(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({
+      summary: 'Admin: review a vehicle schedule (set status / rejectedReason)',
+    }),
+    ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
+    ApiParam({ name: 'scheduleId', type: String, description: 'Schedule ID' }),
+    ApiBody({ type: AdminReviewVehicleScheduleDto }),
+    ApiOkResponse({ description: 'Vehicle schedule reviewed successfully' }),
+    ApiNotFoundResponse({ description: 'Vehicle schedule not found' }),
     ApiForbiddenResponse({ description: 'Access denied' }),
   );
 }

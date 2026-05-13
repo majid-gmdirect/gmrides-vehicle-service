@@ -10,3 +10,11 @@ export * from './create-vehicle-pco.dto';
 export * from './update-vehicle-pco.dto';
 export * from './update-vehicle-status.dto';
 
+export * from './create-permission-letter.dto';
+export * from './update-permission-letter.dto';
+export * from './admin-review-permission-letter.dto';
+
+export * from './create-vehicle-schedule.dto';
+export * from './update-vehicle-schedule.dto';
+export * from './admin-review-vehicle-schedule.dto';
+
