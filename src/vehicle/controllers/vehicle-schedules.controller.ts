@@ -17,7 +17,7 @@ export class VehicleSchedulesController {
   constructor(private readonly vehicleService: VehicleService) {}
 
   @Get('driver/:driverId/vehicles/:vehicleId/schedules')
-  @Roles('DRIVER')
+  @Roles('DRIVER', 'ADMIN')
   @ListVehicleSchedulesSwagger()
   list(
     @Param('driverId') driverId: string,
@@ -28,7 +28,7 @@ export class VehicleSchedulesController {
   }
 
   @Get('driver/:driverId/vehicles/:vehicleId/schedules/:scheduleId')
-  @Roles('DRIVER')
+  @Roles('DRIVER', 'ADMIN')
   @GetVehicleScheduleSwagger()
   getOne(
     @Param('driverId') driverId: string,
@@ -40,7 +40,7 @@ export class VehicleSchedulesController {
   }
 
   @Post('driver/:driverId/vehicles/:vehicleId/schedules')
-  @Roles('DRIVER')
+  @Roles('DRIVER', 'ADMIN')
   @CreateVehicleScheduleSwagger()
   create(
     @Param('driverId') driverId: string,
@@ -52,7 +52,7 @@ export class VehicleSchedulesController {
   }
 
   @Patch('driver/:driverId/vehicles/:vehicleId/schedules/:scheduleId')
-  @Roles('DRIVER')
+  @Roles('DRIVER', 'ADMIN')
   @UpdateVehicleScheduleSwagger()
   update(
     @Param('driverId') driverId: string,
@@ -71,7 +71,7 @@ export class VehicleSchedulesController {
   }
 
   @Delete('driver/:driverId/vehicles/:vehicleId/schedules/:scheduleId')
-  @Roles('DRIVER')
+  @Roles('DRIVER', 'ADMIN')
   @DeleteVehicleScheduleSwagger()
   remove(
     @Param('driverId') driverId: string,

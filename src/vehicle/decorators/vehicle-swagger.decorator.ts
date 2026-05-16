@@ -403,7 +403,7 @@ export function GetVehiclePcoDocSwagger(): MethodDecorator {
 export function ListPermissionLettersSwagger(): MethodDecorator {
   return applyDecorators(
     ApiBearerAuth(),
-    ApiOperation({ summary: 'List permission letters for a vehicle (driver)' }),
+    ApiOperation({ summary: 'List permission letters for a vehicle (DRIVER/ADMIN)' }),
     ApiParam({ name: 'driverId', type: String, description: 'Driver user ID' }),
     ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
     ApiOkResponse({ description: 'Permission letters retrieved successfully' }),
@@ -415,7 +415,7 @@ export function ListPermissionLettersSwagger(): MethodDecorator {
 export function GetPermissionLetterSwagger(): MethodDecorator {
   return applyDecorators(
     ApiBearerAuth(),
-    ApiOperation({ summary: 'Get a permission letter (driver)' }),
+    ApiOperation({ summary: 'Get a permission letter (DRIVER/ADMIN)' }),
     ApiParam({ name: 'driverId', type: String, description: 'Driver user ID' }),
     ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
     ApiParam({
@@ -433,9 +433,9 @@ export function CreatePermissionLetterSwagger(): MethodDecorator {
   return applyDecorators(
     ApiBearerAuth(),
     ApiOperation({
-      summary: 'Create a permission letter (driver)',
+      summary: 'Create a permission letter (DRIVER/ADMIN)',
       description:
-        'Drivers upload/update documents. Admin review (status/rejectedReason) is done via admin endpoints.',
+        'Upload document payload. Review status/rejectedReason is set via admin review endpoints.',
     }),
     ApiParam({ name: 'driverId', type: String, description: 'Driver user ID' }),
     ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
@@ -450,8 +450,8 @@ export function UpdatePermissionLetterSwagger(): MethodDecorator {
   return applyDecorators(
     ApiBearerAuth(),
     ApiOperation({
-      summary: 'Update a permission letter (driver)',
-      description: 'Drivers can update the document; review status is admin-only.',
+      summary: 'Update a permission letter (DRIVER/ADMIN)',
+      description: 'Update document fields. Review status is set via admin review endpoints.',
     }),
     ApiParam({ name: 'driverId', type: String, description: 'Driver user ID' }),
     ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
@@ -470,7 +470,7 @@ export function UpdatePermissionLetterSwagger(): MethodDecorator {
 export function DeletePermissionLetterSwagger(): MethodDecorator {
   return applyDecorators(
     ApiBearerAuth(),
-    ApiOperation({ summary: 'Delete a permission letter (driver)' }),
+    ApiOperation({ summary: 'Delete a permission letter (DRIVER/ADMIN)' }),
     ApiParam({ name: 'driverId', type: String, description: 'Driver user ID' }),
     ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
     ApiParam({
@@ -536,7 +536,7 @@ export function AdminReviewPermissionLetterSwagger(): MethodDecorator {
 export function ListVehicleSchedulesSwagger(): MethodDecorator {
   return applyDecorators(
     ApiBearerAuth(),
-    ApiOperation({ summary: 'List vehicle schedules (driver)' }),
+    ApiOperation({ summary: 'List vehicle schedules (DRIVER/ADMIN)' }),
     ApiParam({ name: 'driverId', type: String, description: 'Driver user ID' }),
     ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
     ApiOkResponse({ description: 'Vehicle schedules retrieved successfully' }),
@@ -548,7 +548,7 @@ export function ListVehicleSchedulesSwagger(): MethodDecorator {
 export function GetVehicleScheduleSwagger(): MethodDecorator {
   return applyDecorators(
     ApiBearerAuth(),
-    ApiOperation({ summary: 'Get a vehicle schedule (driver)' }),
+    ApiOperation({ summary: 'Get a vehicle schedule (DRIVER/ADMIN)' }),
     ApiParam({ name: 'driverId', type: String, description: 'Driver user ID' }),
     ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
     ApiParam({ name: 'scheduleId', type: String, description: 'Schedule ID' }),
@@ -562,9 +562,9 @@ export function CreateVehicleScheduleSwagger(): MethodDecorator {
   return applyDecorators(
     ApiBearerAuth(),
     ApiOperation({
-      summary: 'Create a vehicle schedule (driver)',
+      summary: 'Create a vehicle schedule (DRIVER/ADMIN)',
       description:
-        'Drivers upload/update documents. Admin review (status/rejectedReason) is done via admin endpoints.',
+        'Upload document payload. Review status/rejectedReason is set via admin review endpoints.',
     }),
     ApiParam({ name: 'driverId', type: String, description: 'Driver user ID' }),
     ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
@@ -579,8 +579,8 @@ export function UpdateVehicleScheduleSwagger(): MethodDecorator {
   return applyDecorators(
     ApiBearerAuth(),
     ApiOperation({
-      summary: 'Update a vehicle schedule (driver)',
-      description: 'Drivers can update the document; review status is admin-only.',
+      summary: 'Update a vehicle schedule (DRIVER/ADMIN)',
+      description: 'Update document fields. Review status is set via admin review endpoints.',
     }),
     ApiParam({ name: 'driverId', type: String, description: 'Driver user ID' }),
     ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
@@ -595,7 +595,7 @@ export function UpdateVehicleScheduleSwagger(): MethodDecorator {
 export function DeleteVehicleScheduleSwagger(): MethodDecorator {
   return applyDecorators(
     ApiBearerAuth(),
-    ApiOperation({ summary: 'Delete a vehicle schedule (driver)' }),
+    ApiOperation({ summary: 'Delete a vehicle schedule (DRIVER/ADMIN)' }),
     ApiParam({ name: 'driverId', type: String, description: 'Driver user ID' }),
     ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
     ApiParam({ name: 'scheduleId', type: String, description: 'Schedule ID' }),

@@ -17,7 +17,7 @@ export class VehiclePermissionLettersController {
   constructor(private readonly vehicleService: VehicleService) {}
 
   @Get('driver/:driverId/vehicles/:vehicleId/permission-letters')
-  @Roles('DRIVER')
+  @Roles('DRIVER', 'ADMIN')
   @ListPermissionLettersSwagger()
   list(
     @Param('driverId') driverId: string,
@@ -28,7 +28,7 @@ export class VehiclePermissionLettersController {
   }
 
   @Get('driver/:driverId/vehicles/:vehicleId/permission-letters/:permissionLetterId')
-  @Roles('DRIVER')
+  @Roles('DRIVER', 'ADMIN')
   @GetPermissionLetterSwagger()
   getOne(
     @Param('driverId') driverId: string,
@@ -45,7 +45,7 @@ export class VehiclePermissionLettersController {
   }
 
   @Post('driver/:driverId/vehicles/:vehicleId/permission-letters')
-  @Roles('DRIVER')
+  @Roles('DRIVER', 'ADMIN')
   @CreatePermissionLetterSwagger()
   create(
     @Param('driverId') driverId: string,
@@ -57,7 +57,7 @@ export class VehiclePermissionLettersController {
   }
 
   @Patch('driver/:driverId/vehicles/:vehicleId/permission-letters/:permissionLetterId')
-  @Roles('DRIVER')
+  @Roles('DRIVER', 'ADMIN')
   @UpdatePermissionLetterSwagger()
   update(
     @Param('driverId') driverId: string,
@@ -76,7 +76,7 @@ export class VehiclePermissionLettersController {
   }
 
   @Delete('driver/:driverId/vehicles/:vehicleId/permission-letters/:permissionLetterId')
-  @Roles('DRIVER')
+  @Roles('DRIVER', 'ADMIN')
   @DeletePermissionLetterSwagger()
   remove(
     @Param('driverId') driverId: string,
