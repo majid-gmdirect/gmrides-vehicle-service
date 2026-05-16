@@ -201,7 +201,7 @@ export function UpdateVehicleInspectionSwagger(): MethodDecorator {
     ApiOperation({
       summary: 'Update a vehicle inspection',
       description:
-        'Drivers may update document fields. Only admins may set status/rejectedReason; when status becomes REJECTED, the driver is emailed.',
+        'Drivers may update document fields; updating a rejected record resets status to PENDING for re-review. Only admins may set status/rejectedReason; when status becomes REJECTED, the driver is emailed.',
     }),
     ApiParam({ name: 'driverId', type: String, description: 'Driver user ID' }),
     ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
@@ -282,7 +282,7 @@ export function UpdateVehicleInsuranceSwagger(): MethodDecorator {
     ApiOperation({
       summary: 'Update a vehicle insurance record',
       description:
-        'Drivers may update document fields. Only admins may set status/rejectedReason; when status becomes REJECTED, the driver is emailed.',
+        'Drivers may update document fields; updating a rejected record resets status to PENDING for re-review. Only admins may set status/rejectedReason; when status becomes REJECTED, the driver is emailed.',
     }),
     ApiParam({ name: 'driverId', type: String, description: 'Driver user ID' }),
     ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
@@ -363,7 +363,7 @@ export function UpdateVehiclePcoDocSwagger(): MethodDecorator {
     ApiOperation({
       summary: 'Update a vehicle PCO document record',
       description:
-        'Drivers may update document fields. Only admins may set status/rejectedReason; when status becomes REJECTED, the driver is emailed.',
+        'Drivers may update document fields; updating a rejected record resets status to PENDING for re-review. Only admins may set status/rejectedReason; when status becomes REJECTED, the driver is emailed.',
     }),
     ApiParam({ name: 'driverId', type: String, description: 'Driver user ID' }),
     ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
@@ -467,7 +467,8 @@ export function UpdatePermissionLetterSwagger(): MethodDecorator {
     ApiBearerAuth(),
     ApiOperation({
       summary: 'Update a permission letter (DRIVER/ADMIN)',
-      description: 'Update document fields. Review status is set via admin review endpoints.',
+      description:
+        'Update document fields; uploading a new file on a rejected record resets status to PENDING. Admin review uses separate review endpoints.',
     }),
     ApiParam({ name: 'driverId', type: String, description: 'Driver user ID' }),
     ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
@@ -596,7 +597,8 @@ export function UpdateVehicleScheduleSwagger(): MethodDecorator {
     ApiBearerAuth(),
     ApiOperation({
       summary: 'Update a vehicle schedule (DRIVER/ADMIN)',
-      description: 'Update document fields. Review status is set via admin review endpoints.',
+      description:
+        'Update document fields; uploading a new file on a rejected record resets status to PENDING. Admin review uses separate review endpoints.',
     }),
     ApiParam({ name: 'driverId', type: String, description: 'Driver user ID' }),
     ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),

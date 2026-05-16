@@ -36,6 +36,7 @@ import {
   tryNotifyVehicleDocumentRejected,
   VehicleDocumentKind,
 } from '../common/vehicle-document-rejection-notification.util';
+import { applyDriverResubmissionReviewReset } from '../common/reset-document-on-driver-resubmission.util';
 
 type Requester = { userId: string; role?: string };
 
@@ -883,6 +884,12 @@ export class VehicleService {
     if (rest.document !== undefined) {
       data.document = rest.document as Prisma.InputJsonValue;
     }
+    applyDriverResubmissionReviewReset(
+      isAdmin,
+      existing.status,
+      data,
+      Object.keys(data).length > 0,
+    );
     this.mergeAdminReviewFieldsOnUpdate(isAdmin, data, status, rejectedReason);
 
     const inspection = await this.prisma.vehicleInspection.update({
@@ -1062,6 +1069,12 @@ export class VehicleService {
     if (rest.document !== undefined) {
       data.document = rest.document as Prisma.InputJsonValue;
     }
+    applyDriverResubmissionReviewReset(
+      isAdmin,
+      existing.status,
+      data,
+      Object.keys(data).length > 0,
+    );
     this.mergeAdminReviewFieldsOnUpdate(isAdmin, data, status, rejectedReason);
 
     const insurance = await this.prisma.vehicleInsurance.update({
@@ -1237,6 +1250,12 @@ export class VehicleService {
     if (rest.document !== undefined) {
       data.document = rest.document as Prisma.InputJsonValue;
     }
+    applyDriverResubmissionReviewReset(
+      isAdmin,
+      existing.status,
+      data,
+      Object.keys(data).length > 0,
+    );
     this.mergeAdminReviewFieldsOnUpdate(isAdmin, data, status, rejectedReason);
 
     const doc = await this.prisma.vehiclePcoDocument.update({
@@ -1367,8 +1386,15 @@ export class VehicleService {
     });
     if (!existing) throw new NotFoundException('Permission letter not found');
 
+    const isAdmin = requester.role === 'ADMIN';
     const data: Prisma.PermissionLetterUpdateInput = {};
     if (dto.document !== undefined) data.document = dto.document as Prisma.InputJsonValue;
+    applyDriverResubmissionReviewReset(
+      isAdmin,
+      existing.status,
+      data,
+      dto.document !== undefined,
+    );
 
     const row = await this.prisma.permissionLetter.update({
       where: { id: permissionLetterId },
@@ -1546,8 +1572,15 @@ export class VehicleService {
     });
     if (!existing) throw new NotFoundException('Vehicle schedule not found');
 
+    const isAdmin = requester.role === 'ADMIN';
     const data: Prisma.VehicleScheduleUpdateInput = {};
     if (dto.document !== undefined) data.document = dto.document as Prisma.InputJsonValue;
+    applyDriverResubmissionReviewReset(
+      isAdmin,
+      existing.status,
+      data,
+      dto.document !== undefined,
+    );
 
     const row = await this.prisma.vehicleSchedule.update({
       where: { id: scheduleId },
