@@ -91,7 +91,11 @@ export function DeleteVehicleSwagger(): MethodDecorator {
 export function AdminListVehiclesSwagger(): MethodDecorator {
   return applyDecorators(
     ApiBearerAuth(),
-    ApiOperation({ summary: 'Admin: list all vehicles' }),
+    ApiOperation({
+      summary: 'Admin: list all vehicles',
+      description:
+        'Each vehicle includes images, inspections, insurances, PCO documents, permission letters, vehicle schedules, and driver summary.',
+    }),
     ApiQuery({ name: 'search', required: false, type: String }),
     ApiQuery({ name: 'page', required: false, type: Number }),
     ApiQuery({ name: 'limit', required: false, type: Number }),

@@ -533,6 +533,8 @@ export class VehicleService {
           inspections: true,
           insurances: true,
           pcoDocs: true,
+          permissionLetters: true,
+          vehicleSchedules: true,
         },
       }),
       this.prisma.vehicle.count({ where }),
