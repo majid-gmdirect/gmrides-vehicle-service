@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { HttpModule } from '@nestjs/axios';
+import { ClientsModule, Transport } from '@nestjs/microservices';
 import { VehicleService } from './vehicle.service';
 import { AdminVehiclesController } from './controllers/admin-vehicles.controller';
 import { DriverVehiclesController } from './controllers/driver-vehicles.controller';
@@ -15,7 +16,22 @@ import { AdminVehicleSchedulesController } from './controllers/admin-vehicle-sch
 import { CarApiService } from './car-api.service';
 
 @Module({
-  imports: [HttpModule],
+  imports: [
+    HttpModule,
+    ClientsModule.register([
+      {
+        name: 'NOTIFICATION_SERVICE',
+        transport: Transport.RMQ,
+        options: {
+          urls: [process.env.RABBIT_MQ_URL || 'amqp://localhost:5672'],
+          queue: 'notification_queue',
+          queueOptions: {
+            durable: true,
+          },
+        },
+      },
+    ]),
+  ],
   controllers: [
     DriverVehiclesController,
     VehicleImagesController,

@@ -198,7 +198,11 @@ export function CreateVehicleInspectionSwagger(): MethodDecorator {
 export function UpdateVehicleInspectionSwagger(): MethodDecorator {
   return applyDecorators(
     ApiBearerAuth(),
-    ApiOperation({ summary: 'Update a vehicle inspection' }),
+    ApiOperation({
+      summary: 'Update a vehicle inspection',
+      description:
+        'Drivers may update document fields. Only admins may set status/rejectedReason; when status becomes REJECTED, the driver is emailed.',
+    }),
     ApiParam({ name: 'driverId', type: String, description: 'Driver user ID' }),
     ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
     ApiParam({
@@ -275,7 +279,11 @@ export function CreateVehicleInsuranceSwagger(): MethodDecorator {
 export function UpdateVehicleInsuranceSwagger(): MethodDecorator {
   return applyDecorators(
     ApiBearerAuth(),
-    ApiOperation({ summary: 'Update a vehicle insurance record' }),
+    ApiOperation({
+      summary: 'Update a vehicle insurance record',
+      description:
+        'Drivers may update document fields. Only admins may set status/rejectedReason; when status becomes REJECTED, the driver is emailed.',
+    }),
     ApiParam({ name: 'driverId', type: String, description: 'Driver user ID' }),
     ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
     ApiParam({
@@ -352,7 +360,11 @@ export function CreateVehiclePcoDocSwagger(): MethodDecorator {
 export function UpdateVehiclePcoDocSwagger(): MethodDecorator {
   return applyDecorators(
     ApiBearerAuth(),
-    ApiOperation({ summary: 'Update a vehicle PCO document record' }),
+    ApiOperation({
+      summary: 'Update a vehicle PCO document record',
+      description:
+        'Drivers may update document fields. Only admins may set status/rejectedReason; when status becomes REJECTED, the driver is emailed.',
+    }),
     ApiParam({ name: 'driverId', type: String, description: 'Driver user ID' }),
     ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
     ApiParam({ name: 'pcoDocId', type: String, description: 'PCO document ID' }),

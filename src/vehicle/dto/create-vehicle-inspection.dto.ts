@@ -36,7 +36,8 @@ export class CreateVehicleInspectionDto {
   document?: Record<string, any>;
 
   @ApiPropertyOptional({
-    description: 'Admin review status',
+    description:
+      'Admin review status (admin only). When set to REJECTED, the driver is notified by email.',
     enum: DocumentStatus,
     default: DocumentStatus.PENDING,
     example: DocumentStatus.PENDING,

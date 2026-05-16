@@ -1,10 +1,13 @@
 import {
   BadRequestException,
   ForbiddenException,
+  Inject,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
+import { ClientProxy } from '@nestjs/microservices';
 import { Prisma, InspectionType, DocumentStatus } from '@prisma/client';
 import { lastValueFrom } from 'rxjs';
 import { PrismaService } from '../prisma/prisma.service';
@@ -29,6 +32,10 @@ import {
   UpdatePermissionLetterDto,
   UpdateVehicleScheduleDto,
 } from './dto';
+import {
+  tryNotifyVehicleDocumentRejected,
+  VehicleDocumentKind,
+} from '../common/vehicle-document-rejection-notification.util';
 
 type Requester = { userId: string; role?: string };
 
@@ -39,10 +46,75 @@ function toPrismaDateTime(value: string): Date {
 
 @Injectable()
 export class VehicleService {
+  private readonly logger = new Logger(VehicleService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly httpService: HttpService,
+    @Inject('NOTIFICATION_SERVICE')
+    private readonly notificationClient: ClientProxy,
   ) {}
+
+  private mergeAdminReviewFieldsOnCreate(
+    isAdmin: boolean,
+    status: DocumentStatus | undefined,
+    rejectedReason: string | undefined,
+  ): Partial<{ status: DocumentStatus; rejectedReason: string | null }> {
+    if (!isAdmin) return {};
+    const out: Partial<{ status: DocumentStatus; rejectedReason: string | null }> =
+      {};
+    if (status !== undefined) {
+      out.status = status;
+      if (status !== DocumentStatus.REJECTED) {
+        out.rejectedReason = rejectedReason ?? null;
+      } else if (rejectedReason !== undefined) {
+        out.rejectedReason = rejectedReason;
+      }
+    } else if (rejectedReason !== undefined) {
+      out.rejectedReason = rejectedReason;
+    }
+    return out;
+  }
+
+  private mergeAdminReviewFieldsOnUpdate(
+    isAdmin: boolean,
+    data:
+      | Prisma.VehicleInspectionUpdateInput
+      | Prisma.VehicleInsuranceUpdateInput
+      | Prisma.VehiclePcoDocumentUpdateInput,
+    status: DocumentStatus | undefined,
+    rejectedReason: string | undefined,
+  ): void {
+    if (!isAdmin) return;
+    if (status !== undefined) {
+      data.status = status;
+      if (status !== DocumentStatus.REJECTED) {
+        data.rejectedReason = rejectedReason ?? null;
+      } else if (rejectedReason !== undefined) {
+        data.rejectedReason = rejectedReason;
+      }
+    } else if (rejectedReason !== undefined) {
+      data.rejectedReason = rejectedReason;
+    }
+  }
+
+  private notifyVehicleDocumentRejectedIfNeeded(
+    driverId: string,
+    documentKind: VehicleDocumentKind,
+    rejectedReason: string | null | undefined,
+    becameRejected: boolean,
+  ): void {
+    if (!becameRejected) return;
+    tryNotifyVehicleDocumentRejected(
+      this.notificationClient,
+      this.logger,
+      {
+        driverUserId: driverId,
+        documentKind,
+        rejectedReason,
+      },
+    );
+  }
 
   private assertDriverAccess(driverId: string, requester: Requester) {
     const isOwner = driverId === requester.userId;
@@ -734,25 +806,41 @@ export class VehicleService {
     await this.assertDriverExistsAndIsDriver(driverId);
     await this.getVehicleForDriverOrThrow(driverId, vehicleId);
 
-    const inspectionType = dto.inspectionType as InspectionType;
+    const isAdmin = requester.role === 'ADMIN';
+    const { status, rejectedReason, ...rest } = dto;
+    const review = this.mergeAdminReviewFieldsOnCreate(
+      isAdmin,
+      status,
+      rejectedReason,
+    );
 
     const inspection = await this.prisma.vehicleInspection.create({
       data: {
         vehicleId,
-        ...(dto.inspectionType !== undefined && { inspectionType }),
-        ...(dto.inspectionDate !== undefined && {
-          inspectionDate: toPrismaDateTime(dto.inspectionDate),
+        ...review,
+        ...(rest.inspectionType !== undefined && {
+          inspectionType: rest.inspectionType as InspectionType,
         }),
-        ...(dto.status !== undefined && { status: dto.status as DocumentStatus }),
-        ...(dto.rejectedReason !== undefined && { rejectedReason: dto.rejectedReason }),
-        ...(dto.expiryDate !== undefined && {
-          expiryDate: toPrismaDateTime(dto.expiryDate),
+        ...(rest.inspectionDate !== undefined && {
+          inspectionDate: toPrismaDateTime(rest.inspectionDate),
         }),
-        ...(dto.document !== undefined && {
-          document: dto.document as Prisma.InputJsonValue,
+        ...(rest.expiryDate !== undefined && {
+          expiryDate: toPrismaDateTime(rest.expiryDate),
+        }),
+        ...(rest.document !== undefined && {
+          document: rest.document as Prisma.InputJsonValue,
         }),
       },
     });
+
+    if (isAdmin && inspection.status === DocumentStatus.REJECTED) {
+      this.notifyVehicleDocumentRejectedIfNeeded(
+        driverId,
+        'vehicle_inspection',
+        inspection.rejectedReason,
+        true,
+      );
+    }
 
     return formatResponse({
       success: true,
@@ -777,30 +865,41 @@ export class VehicleService {
     });
     if (!existing) throw new NotFoundException('Vehicle inspection not found');
 
+    const isAdmin = requester.role === 'ADMIN';
+    const { status, rejectedReason, ...rest } = dto;
+
     const data: Prisma.VehicleInspectionUpdateInput = {};
-    if (dto.inspectionType !== undefined) {
-      data.inspectionType = dto.inspectionType as InspectionType;
+    if (rest.inspectionType !== undefined) {
+      data.inspectionType = rest.inspectionType as InspectionType;
     }
-    if (dto.inspectionDate !== undefined) {
-      data.inspectionDate = toPrismaDateTime(dto.inspectionDate);
+    if (rest.inspectionDate !== undefined) {
+      data.inspectionDate = toPrismaDateTime(rest.inspectionDate);
     }
-    if (dto.status !== undefined) {
-      data.status = dto.status as DocumentStatus;
+    if (rest.expiryDate !== undefined) {
+      data.expiryDate = rest.expiryDate
+        ? toPrismaDateTime(rest.expiryDate)
+        : null;
     }
-    if (dto.rejectedReason !== undefined) {
-      data.rejectedReason = dto.rejectedReason;
+    if (rest.document !== undefined) {
+      data.document = rest.document as Prisma.InputJsonValue;
     }
-    if (dto.expiryDate !== undefined) {
-      data.expiryDate = dto.expiryDate ? toPrismaDateTime(dto.expiryDate) : null;
-    }
-    if (dto.document !== undefined) {
-      data.document = dto.document as Prisma.InputJsonValue;
-    }
+    this.mergeAdminReviewFieldsOnUpdate(isAdmin, data, status, rejectedReason);
 
     const inspection = await this.prisma.vehicleInspection.update({
       where: { id: inspectionId },
       data,
     });
+
+    const becameRejected =
+      isAdmin &&
+      inspection.status === DocumentStatus.REJECTED &&
+      existing.status !== DocumentStatus.REJECTED;
+    this.notifyVehicleDocumentRejectedIfNeeded(
+      driverId,
+      'vehicle_inspection',
+      inspection.rejectedReason,
+      becameRejected,
+    );
 
     return formatResponse({
       success: true,
@@ -888,22 +987,42 @@ export class VehicleService {
     await this.assertDriverExistsAndIsDriver(driverId);
     await this.getVehicleForDriverOrThrow(driverId, vehicleId);
 
+    const isAdmin = requester.role === 'ADMIN';
+    const { status, rejectedReason, ...rest } = dto;
+    const review = this.mergeAdminReviewFieldsOnCreate(
+      isAdmin,
+      status,
+      rejectedReason,
+    );
+
     const insurance = await this.prisma.vehicleInsurance.create({
       data: {
         vehicleId,
-        ...(dto.provider !== undefined && { provider: dto.provider }),
-        ...(dto.policyNumber !== undefined && { policyNumber: dto.policyNumber }),
-        ...(dto.startDate !== undefined && {
-          startDate: toPrismaDateTime(dto.startDate),
+        ...review,
+        ...(rest.provider !== undefined && { provider: rest.provider }),
+        ...(rest.policyNumber !== undefined && {
+          policyNumber: rest.policyNumber,
         }),
-        ...(dto.status !== undefined && { status: dto.status as DocumentStatus }),
-        ...(dto.rejectedReason !== undefined && { rejectedReason: dto.rejectedReason }),
-        ...(dto.endDate !== undefined && { endDate: toPrismaDateTime(dto.endDate) }),
-        ...(dto.document !== undefined && {
-          document: dto.document as Prisma.InputJsonValue,
+        ...(rest.startDate !== undefined && {
+          startDate: toPrismaDateTime(rest.startDate),
+        }),
+        ...(rest.endDate !== undefined && {
+          endDate: toPrismaDateTime(rest.endDate),
+        }),
+        ...(rest.document !== undefined && {
+          document: rest.document as Prisma.InputJsonValue,
         }),
       },
     });
+
+    if (isAdmin && insurance.status === DocumentStatus.REJECTED) {
+      this.notifyVehicleDocumentRejectedIfNeeded(
+        driverId,
+        'vehicle_insurance',
+        insurance.rejectedReason,
+        true,
+      );
+    }
 
     return formatResponse({
       success: true,
@@ -928,20 +1047,38 @@ export class VehicleService {
     });
     if (!existing) throw new NotFoundException('Vehicle insurance not found');
 
+    const isAdmin = requester.role === 'ADMIN';
+    const { status, rejectedReason, ...rest } = dto;
+
     const data: Prisma.VehicleInsuranceUpdateInput = {};
-    if (dto.provider !== undefined) data.provider = dto.provider;
-    if (dto.policyNumber !== undefined) data.policyNumber = dto.policyNumber;
-    if (dto.startDate !== undefined) data.startDate = toPrismaDateTime(dto.startDate);
-    if (dto.endDate !== undefined) data.endDate = dto.endDate ? toPrismaDateTime(dto.endDate) : null;
-    if (dto.status !== undefined) data.status = dto.status as DocumentStatus;
-    if (dto.rejectedReason !== undefined) data.rejectedReason = dto.rejectedReason;
-    if (dto.document !== undefined)
-      data.document = dto.document as Prisma.InputJsonValue;
+    if (rest.provider !== undefined) data.provider = rest.provider;
+    if (rest.policyNumber !== undefined) data.policyNumber = rest.policyNumber;
+    if (rest.startDate !== undefined) {
+      data.startDate = toPrismaDateTime(rest.startDate);
+    }
+    if (rest.endDate !== undefined) {
+      data.endDate = rest.endDate ? toPrismaDateTime(rest.endDate) : null;
+    }
+    if (rest.document !== undefined) {
+      data.document = rest.document as Prisma.InputJsonValue;
+    }
+    this.mergeAdminReviewFieldsOnUpdate(isAdmin, data, status, rejectedReason);
 
     const insurance = await this.prisma.vehicleInsurance.update({
       where: { id: insuranceId },
       data,
     });
+
+    const becameRejected =
+      isAdmin &&
+      insurance.status === DocumentStatus.REJECTED &&
+      existing.status !== DocumentStatus.REJECTED;
+    this.notifyVehicleDocumentRejectedIfNeeded(
+      driverId,
+      'vehicle_insurance',
+      insurance.rejectedReason,
+      becameRejected,
+    );
 
     return formatResponse({
       success: true,
@@ -1029,23 +1166,39 @@ export class VehicleService {
     await this.assertDriverExistsAndIsDriver(driverId);
     await this.getVehicleForDriverOrThrow(driverId, vehicleId);
 
+    const isAdmin = requester.role === 'ADMIN';
+    const { status, rejectedReason, ...rest } = dto;
+    const review = this.mergeAdminReviewFieldsOnCreate(
+      isAdmin,
+      status,
+      rejectedReason,
+    );
+
     const doc = await this.prisma.vehiclePcoDocument.create({
       data: {
         vehicleId,
-        ...(dto.badgeNumber !== undefined && { badgeNumber: dto.badgeNumber }),
-        ...(dto.issueDate !== undefined && {
-          issueDate: toPrismaDateTime(dto.issueDate),
+        ...review,
+        ...(rest.badgeNumber !== undefined && { badgeNumber: rest.badgeNumber }),
+        ...(rest.issueDate !== undefined && {
+          issueDate: toPrismaDateTime(rest.issueDate),
         }),
-        ...(dto.expiryDate !== undefined && {
-          expiryDate: toPrismaDateTime(dto.expiryDate),
+        ...(rest.expiryDate !== undefined && {
+          expiryDate: toPrismaDateTime(rest.expiryDate),
         }),
-        ...(dto.status !== undefined && { status: dto.status as DocumentStatus }),
-        ...(dto.rejectedReason !== undefined && { rejectedReason: dto.rejectedReason }),
-        ...(dto.document !== undefined && {
-          document: dto.document as Prisma.InputJsonValue,
+        ...(rest.document !== undefined && {
+          document: rest.document as Prisma.InputJsonValue,
         }),
       },
     });
+
+    if (isAdmin && doc.status === DocumentStatus.REJECTED) {
+      this.notifyVehicleDocumentRejectedIfNeeded(
+        driverId,
+        'vehicle_pco_document',
+        doc.rejectedReason,
+        true,
+      );
+    }
 
     return formatResponse({
       success: true,
@@ -1070,18 +1223,37 @@ export class VehicleService {
     });
     if (!existing) throw new NotFoundException('Vehicle PCO document not found');
 
+    const isAdmin = requester.role === 'ADMIN';
+    const { status, rejectedReason, ...rest } = dto;
+
     const data: Prisma.VehiclePcoDocumentUpdateInput = {};
-    if (dto.badgeNumber !== undefined) data.badgeNumber = dto.badgeNumber;
-    if (dto.issueDate !== undefined) data.issueDate = toPrismaDateTime(dto.issueDate);
-    if (dto.expiryDate !== undefined) data.expiryDate = toPrismaDateTime(dto.expiryDate);
-    if (dto.status !== undefined) data.status = dto.status as DocumentStatus;
-    if (dto.rejectedReason !== undefined) data.rejectedReason = dto.rejectedReason;
-    if (dto.document !== undefined) data.document = dto.document as Prisma.InputJsonValue;
+    if (rest.badgeNumber !== undefined) data.badgeNumber = rest.badgeNumber;
+    if (rest.issueDate !== undefined) {
+      data.issueDate = toPrismaDateTime(rest.issueDate);
+    }
+    if (rest.expiryDate !== undefined) {
+      data.expiryDate = toPrismaDateTime(rest.expiryDate);
+    }
+    if (rest.document !== undefined) {
+      data.document = rest.document as Prisma.InputJsonValue;
+    }
+    this.mergeAdminReviewFieldsOnUpdate(isAdmin, data, status, rejectedReason);
 
     const doc = await this.prisma.vehiclePcoDocument.update({
       where: { id: pcoDocId },
       data,
     });
+
+    const becameRejected =
+      isAdmin &&
+      doc.status === DocumentStatus.REJECTED &&
+      existing.status !== DocumentStatus.REJECTED;
+    this.notifyVehicleDocumentRejectedIfNeeded(
+      driverId,
+      'vehicle_pco_document',
+      doc.rejectedReason,
+      becameRejected,
+    );
 
     return formatResponse({
       success: true,
