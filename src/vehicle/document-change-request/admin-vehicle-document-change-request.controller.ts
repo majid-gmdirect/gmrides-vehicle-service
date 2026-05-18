@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Query, Req } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Query, Req } from '@nestjs/common';
 import { ApiBearerAuth, ApiParam, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../../auth/roles.decorator';
 import {
@@ -53,5 +53,15 @@ export class AdminVehicleDocumentChangeRequestController {
     @Req() req: { user: { userId: string; role?: string } },
   ) {
     return this.changeRequestService.adminReview(requestId, dto, req.user);
+  }
+
+  @Delete('vehicle-document-change-requests/:requestId')
+  @Roles('ADMIN')
+  @ApiParam({ name: 'requestId', type: String })
+  remove(
+    @Param('requestId') requestId: string,
+    @Req() req: { user: { userId: string; role?: string } },
+  ) {
+    return this.changeRequestService.adminRemove(requestId, req.user);
   }
 }

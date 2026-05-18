@@ -731,4 +731,35 @@ export class VehicleDocumentChangeRequestService {
           : 'Vehicle document change request rejected successfully',
     });
   }
+
+  /**
+   * Admin: permanently remove a completed change request record (e.g. after ACCEPTED).
+   * Does not alter the live document — only deletes the request row.
+   */
+  async adminRemove(requestId: string, requester: Requester) {
+    if (requester.role !== 'ADMIN') {
+      throw new ForbiddenException('Admin access required');
+    }
+
+    const row = await this.prisma.vehicleDocumentChangeRequest.findUnique({
+      where: { id: requestId },
+    });
+    if (!row) throw new NotFoundException('Change request not found');
+
+    if (row.status === VehicleDocumentChangeRequestStatus.PENDING_REVIEW) {
+      throw new ConflictException(
+        'Cannot delete a pending change request. Reject it via review or ask the driver to cancel it first.',
+      );
+    }
+
+    await this.prisma.vehicleDocumentChangeRequest.delete({
+      where: { id: requestId },
+    });
+
+    return formatResponse({
+      success: true,
+      data: null,
+      message: 'Vehicle document change request deleted successfully',
+    });
+  }
 }
