@@ -28,6 +28,21 @@ enum DocumentStatus {
   PENDING
 }
 
+enum VehicleDocumentKind {
+  INSPECTION
+  INSURANCE
+  PCO_DOCUMENT
+  PERMISSION_LETTER
+  SCHEDULE
+}
+
+enum VehicleDocumentChangeRequestStatus {
+  PENDING_REVIEW
+  ACCEPTED
+  REJECTED
+  CANCELLED
+}
+
 // ==========================
 // VEHICLES
 // ==========================
@@ -54,6 +69,7 @@ model Vehicle {
   pcoDocs     VehiclePcoDocument[]
   permissionLetters PermissionLetter[]
   vehicleSchedules VehicleSchedule[]
+  documentChangeRequests VehicleDocumentChangeRequest[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -138,4 +154,32 @@ model VehicleSchedule {
   vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model VehicleDocumentChangeRequest {
+  id String @id @default(uuid())
+
+  driverId String
+  vehicleId String
+  targetType VehicleDocumentKind
+  targetDocumentId String
+
+  status VehicleDocumentChangeRequestStatus @default(PENDING_REVIEW)
+
+  /// Proposed document snapshot (editable fields only; shape depends on targetType).
+  payload Json
+  driver_note String?
+
+  rejected_reason String?
+  reviewed_by_id String?
+  reviewed_at DateTime?
+
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([driverId, status])
+  @@index([vehicleId, status])
+  @@index([targetType, targetDocumentId, status])
 }

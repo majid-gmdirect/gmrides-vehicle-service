@@ -16,6 +16,9 @@ import { AdminVehicleSchedulesController } from './controllers/admin-vehicle-sch
 import { InternalDriverDocumentsController } from './controllers/internal-driver-documents.controller';
 import { DriverDocumentStatusController } from './controllers/driver-document-status.controller';
 import { CarApiService } from './car-api.service';
+import { VehicleDocumentChangeRequestService } from './document-change-request/vehicle-document-change-request.service';
+import { VehicleDocumentChangeRequestController } from './document-change-request/vehicle-document-change-request.controller';
+import { AdminVehicleDocumentChangeRequestController } from './document-change-request/admin-vehicle-document-change-request.controller';
 
 @Module({
   imports: [
@@ -48,8 +51,14 @@ import { CarApiService } from './car-api.service';
     AdminVehicleSchedulesController,
     InternalDriverDocumentsController,
     DriverDocumentStatusController,
+    VehicleDocumentChangeRequestController,
+    AdminVehicleDocumentChangeRequestController,
   ],
-  providers: [VehicleService, CarApiService],
+  providers: [
+    VehicleService,
+    CarApiService,
+    VehicleDocumentChangeRequestService,
+  ],
   exports: [VehicleService],
 })
 export class VehicleModule {}

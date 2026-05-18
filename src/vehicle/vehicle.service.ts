@@ -8,7 +8,12 @@ import {
 } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { ClientProxy } from '@nestjs/microservices';
-import { Prisma, InspectionType, DocumentStatus } from '@prisma/client';
+import {
+  Prisma,
+  InspectionType,
+  DocumentStatus,
+  VehicleDocumentKind,
+} from '@prisma/client';
 import { lastValueFrom } from 'rxjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { formatResponse } from '../common/format-response.util';
@@ -33,11 +38,13 @@ import {
   UpdateVehicleScheduleDto,
 } from './dto';
 import {
-  tryNotifyVehicleDocumentRejected,
-  VehicleDocumentKind,
-} from '../common/vehicle-document-rejection-notification.util';
+  tryNotifyDriverVehicleDocumentAccepted,
+  tryNotifyDriverVehicleDocumentRejected,
+} from '../common/vehicle-document-driver-notification.util';
 import { applyDriverResubmissionReviewReset } from '../common/reset-document-on-driver-resubmission.util';
 import { normalizeToReviewStatus } from '../common/document-review-status.util';
+import { assertDriverMayMutateLiveVehicleDocument } from '../common/vehicle-document-mutation.policy';
+import { attachPendingToVehicleDocumentRows } from '../common/pending-vehicle-document-change-request.util';
 
 type Requester = { userId: string; role?: string };
 
@@ -100,22 +107,39 @@ export class VehicleService {
     }
   }
 
-  private notifyVehicleDocumentRejectedIfNeeded(
+  private notifyVehicleDocumentReviewOutcomeIfNeeded(
     driverId: string,
-    documentKind: VehicleDocumentKind,
-    rejectedReason: string | null | undefined,
-    becameRejected: boolean,
+    targetType: VehicleDocumentKind,
+    existingStatus: DocumentStatus,
+    updated: { status: DocumentStatus; rejectedReason?: string | null },
   ): void {
-    if (!becameRejected) return;
-    tryNotifyVehicleDocumentRejected(
-      this.notificationClient,
-      this.logger,
-      {
-        driverUserId: driverId,
-        documentKind,
-        rejectedReason,
-      },
-    );
+    if (
+      updated.status === DocumentStatus.REJECTED &&
+      existingStatus !== DocumentStatus.REJECTED
+    ) {
+      void tryNotifyDriverVehicleDocumentRejected(
+        this.notificationClient,
+        this.logger,
+        {
+          driverUserId: driverId,
+          targetType,
+          rejectedReason: updated.rejectedReason,
+        },
+      );
+    }
+    if (
+      updated.status === DocumentStatus.ACCEPTED &&
+      existingStatus !== DocumentStatus.ACCEPTED
+    ) {
+      void tryNotifyDriverVehicleDocumentAccepted(
+        this.notificationClient,
+        this.logger,
+        {
+          driverUserId: driverId,
+          targetType,
+        },
+      );
+    }
   }
 
   private assertDriverAccess(driverId: string, requester: Requester) {
@@ -769,9 +793,15 @@ export class VehicleService {
       orderBy: { createdAt: 'desc' },
     });
 
+    const data = await attachPendingToVehicleDocumentRows(
+      this.prisma,
+      VehicleDocumentKind.INSPECTION,
+      inspections,
+    );
+
     return formatResponse({
       success: true,
-      data: inspections,
+      data,
       message: 'Vehicle inspections retrieved successfully',
     });
   }
@@ -791,9 +821,15 @@ export class VehicleService {
     });
     if (!inspection) throw new NotFoundException('Vehicle inspection not found');
 
+    const [data] = await attachPendingToVehicleDocumentRows(
+      this.prisma,
+      VehicleDocumentKind.INSPECTION,
+      [inspection],
+    );
+
     return formatResponse({
       success: true,
-      data: inspection,
+      data,
       message: 'Vehicle inspection retrieved successfully',
     });
   }
@@ -835,12 +871,12 @@ export class VehicleService {
       },
     });
 
-    if (isAdmin && inspection.status === DocumentStatus.REJECTED) {
-      this.notifyVehicleDocumentRejectedIfNeeded(
+    if (isAdmin) {
+      this.notifyVehicleDocumentReviewOutcomeIfNeeded(
         driverId,
-        'vehicle_inspection',
-        inspection.rejectedReason,
-        true,
+        VehicleDocumentKind.INSPECTION,
+        DocumentStatus.PENDING,
+        inspection,
       );
     }
 
@@ -868,6 +904,8 @@ export class VehicleService {
     if (!existing) throw new NotFoundException('Vehicle inspection not found');
 
     const isAdmin = requester.role === 'ADMIN';
+    assertDriverMayMutateLiveVehicleDocument(isAdmin, existing.status);
+
     const { status, rejectedReason, ...rest } = dto;
 
     const data: Prisma.VehicleInspectionUpdateInput = {};
@@ -898,20 +936,24 @@ export class VehicleService {
       data,
     });
 
-    const becameRejected =
-      isAdmin &&
-      inspection.status === DocumentStatus.REJECTED &&
-      existing.status !== DocumentStatus.REJECTED;
-    this.notifyVehicleDocumentRejectedIfNeeded(
-      driverId,
-      'vehicle_inspection',
-      inspection.rejectedReason,
-      becameRejected,
+    const [mapped] = await attachPendingToVehicleDocumentRows(
+      this.prisma,
+      VehicleDocumentKind.INSPECTION,
+      [inspection],
     );
+
+    if (isAdmin) {
+      this.notifyVehicleDocumentReviewOutcomeIfNeeded(
+        driverId,
+        VehicleDocumentKind.INSPECTION,
+        existing.status,
+        inspection,
+      );
+    }
 
     return formatResponse({
       success: true,
-      data: inspection,
+      data: mapped,
       message: 'Vehicle inspection updated successfully',
     });
   }
@@ -930,6 +972,9 @@ export class VehicleService {
       where: { id: inspectionId, vehicleId },
     });
     if (!existing) throw new NotFoundException('Vehicle inspection not found');
+
+    const isAdmin = requester.role === 'ADMIN';
+    assertDriverMayMutateLiveVehicleDocument(isAdmin, existing.status);
 
     await this.prisma.vehicleInspection.delete({ where: { id: inspectionId } });
     return formatResponse({
@@ -956,9 +1001,15 @@ export class VehicleService {
       orderBy: { createdAt: 'desc' },
     });
 
+    const data = await attachPendingToVehicleDocumentRows(
+      this.prisma,
+      VehicleDocumentKind.INSURANCE,
+      insurances,
+    );
+
     return formatResponse({
       success: true,
-      data: insurances,
+      data,
       message: 'Vehicle insurances retrieved successfully',
     });
   }
@@ -978,9 +1029,15 @@ export class VehicleService {
     });
     if (!insurance) throw new NotFoundException('Vehicle insurance not found');
 
+    const [data] = await attachPendingToVehicleDocumentRows(
+      this.prisma,
+      VehicleDocumentKind.INSURANCE,
+      [insurance],
+    );
+
     return formatResponse({
       success: true,
-      data: insurance,
+      data,
       message: 'Vehicle insurance retrieved successfully',
     });
   }
@@ -1023,12 +1080,12 @@ export class VehicleService {
       },
     });
 
-    if (isAdmin && insurance.status === DocumentStatus.REJECTED) {
-      this.notifyVehicleDocumentRejectedIfNeeded(
+    if (isAdmin) {
+      this.notifyVehicleDocumentReviewOutcomeIfNeeded(
         driverId,
-        'vehicle_insurance',
-        insurance.rejectedReason,
-        true,
+        VehicleDocumentKind.INSURANCE,
+        DocumentStatus.PENDING,
+        insurance,
       );
     }
 
@@ -1056,6 +1113,8 @@ export class VehicleService {
     if (!existing) throw new NotFoundException('Vehicle insurance not found');
 
     const isAdmin = requester.role === 'ADMIN';
+    assertDriverMayMutateLiveVehicleDocument(isAdmin, existing.status);
+
     const { status, rejectedReason, ...rest } = dto;
 
     const data: Prisma.VehicleInsuranceUpdateInput = {};
@@ -1083,20 +1142,24 @@ export class VehicleService {
       data,
     });
 
-    const becameRejected =
-      isAdmin &&
-      insurance.status === DocumentStatus.REJECTED &&
-      existing.status !== DocumentStatus.REJECTED;
-    this.notifyVehicleDocumentRejectedIfNeeded(
-      driverId,
-      'vehicle_insurance',
-      insurance.rejectedReason,
-      becameRejected,
+    const [mapped] = await attachPendingToVehicleDocumentRows(
+      this.prisma,
+      VehicleDocumentKind.INSURANCE,
+      [insurance],
     );
+
+    if (isAdmin) {
+      this.notifyVehicleDocumentReviewOutcomeIfNeeded(
+        driverId,
+        VehicleDocumentKind.INSURANCE,
+        existing.status,
+        insurance,
+      );
+    }
 
     return formatResponse({
       success: true,
-      data: insurance,
+      data: mapped,
       message: 'Vehicle insurance updated successfully',
     });
   }
@@ -1115,6 +1178,9 @@ export class VehicleService {
       where: { id: insuranceId, vehicleId },
     });
     if (!existing) throw new NotFoundException('Vehicle insurance not found');
+
+    const isAdmin = requester.role === 'ADMIN';
+    assertDriverMayMutateLiveVehicleDocument(isAdmin, existing.status);
 
     await this.prisma.vehicleInsurance.delete({ where: { id: insuranceId } });
     return formatResponse({
@@ -1141,9 +1207,15 @@ export class VehicleService {
       orderBy: { createdAt: 'desc' },
     });
 
+    const data = await attachPendingToVehicleDocumentRows(
+      this.prisma,
+      VehicleDocumentKind.PCO_DOCUMENT,
+      pcoDocs,
+    );
+
     return formatResponse({
       success: true,
-      data: pcoDocs,
+      data,
       message: 'Vehicle PCO documents retrieved successfully',
     });
   }
@@ -1163,9 +1235,15 @@ export class VehicleService {
     });
     if (!doc) throw new NotFoundException('Vehicle PCO document not found');
 
+    const [data] = await attachPendingToVehicleDocumentRows(
+      this.prisma,
+      VehicleDocumentKind.PCO_DOCUMENT,
+      [doc],
+    );
+
     return formatResponse({
       success: true,
-      data: doc,
+      data,
       message: 'Vehicle PCO document retrieved successfully',
     });
   }
@@ -1205,12 +1283,12 @@ export class VehicleService {
       },
     });
 
-    if (isAdmin && doc.status === DocumentStatus.REJECTED) {
-      this.notifyVehicleDocumentRejectedIfNeeded(
+    if (isAdmin) {
+      this.notifyVehicleDocumentReviewOutcomeIfNeeded(
         driverId,
-        'vehicle_pco_document',
-        doc.rejectedReason,
-        true,
+        VehicleDocumentKind.PCO_DOCUMENT,
+        DocumentStatus.PENDING,
+        doc,
       );
     }
 
@@ -1238,6 +1316,8 @@ export class VehicleService {
     if (!existing) throw new NotFoundException('Vehicle PCO document not found');
 
     const isAdmin = requester.role === 'ADMIN';
+    assertDriverMayMutateLiveVehicleDocument(isAdmin, existing.status);
+
     const { status, rejectedReason, ...rest } = dto;
 
     const data: Prisma.VehiclePcoDocumentUpdateInput = {};
@@ -1264,20 +1344,24 @@ export class VehicleService {
       data,
     });
 
-    const becameRejected =
-      isAdmin &&
-      doc.status === DocumentStatus.REJECTED &&
-      existing.status !== DocumentStatus.REJECTED;
-    this.notifyVehicleDocumentRejectedIfNeeded(
-      driverId,
-      'vehicle_pco_document',
-      doc.rejectedReason,
-      becameRejected,
+    const [mapped] = await attachPendingToVehicleDocumentRows(
+      this.prisma,
+      VehicleDocumentKind.PCO_DOCUMENT,
+      [doc],
     );
+
+    if (isAdmin) {
+      this.notifyVehicleDocumentReviewOutcomeIfNeeded(
+        driverId,
+        VehicleDocumentKind.PCO_DOCUMENT,
+        existing.status,
+        doc,
+      );
+    }
 
     return formatResponse({
       success: true,
-      data: doc,
+      data: mapped,
       message: 'Vehicle PCO document updated successfully',
     });
   }
@@ -1296,6 +1380,9 @@ export class VehicleService {
       where: { id: pcoDocId, vehicleId },
     });
     if (!existing) throw new NotFoundException('Vehicle PCO document not found');
+
+    const isAdmin = requester.role === 'ADMIN';
+    assertDriverMayMutateLiveVehicleDocument(isAdmin, existing.status);
 
     await this.prisma.vehiclePcoDocument.delete({ where: { id: pcoDocId } });
     return formatResponse({
@@ -1318,9 +1405,15 @@ export class VehicleService {
       orderBy: { createdAt: 'desc' },
     });
 
+    const data = await attachPendingToVehicleDocumentRows(
+      this.prisma,
+      VehicleDocumentKind.PERMISSION_LETTER,
+      rows,
+    );
+
     return formatResponse({
       success: true,
-      data: rows,
+      data,
       message: 'Permission letters retrieved successfully',
     });
   }
@@ -1340,9 +1433,15 @@ export class VehicleService {
     });
     if (!row) throw new NotFoundException('Permission letter not found');
 
+    const [data] = await attachPendingToVehicleDocumentRows(
+      this.prisma,
+      VehicleDocumentKind.PERMISSION_LETTER,
+      [row],
+    );
+
     return formatResponse({
       success: true,
-      data: row,
+      data,
       message: 'Permission letter retrieved successfully',
     });
   }
@@ -1388,6 +1487,8 @@ export class VehicleService {
     if (!existing) throw new NotFoundException('Permission letter not found');
 
     const isAdmin = requester.role === 'ADMIN';
+    assertDriverMayMutateLiveVehicleDocument(isAdmin, existing.status);
+
     const data: Prisma.PermissionLetterUpdateInput = {};
     if (dto.document !== undefined) data.document = dto.document as Prisma.InputJsonValue;
     applyDriverResubmissionReviewReset(
@@ -1402,9 +1503,15 @@ export class VehicleService {
       data,
     });
 
+    const [mapped] = await attachPendingToVehicleDocumentRows(
+      this.prisma,
+      VehicleDocumentKind.PERMISSION_LETTER,
+      [row],
+    );
+
     return formatResponse({
       success: true,
-      data: row,
+      data: mapped,
       message: 'Permission letter updated successfully',
     });
   }
@@ -1423,6 +1530,9 @@ export class VehicleService {
       where: { id: permissionLetterId, vehicleId },
     });
     if (!existing) throw new NotFoundException('Permission letter not found');
+
+    const isAdmin = requester.role === 'ADMIN';
+    assertDriverMayMutateLiveVehicleDocument(isAdmin, existing.status);
 
     await this.prisma.permissionLetter.delete({ where: { id: permissionLetterId } });
 
@@ -1468,7 +1578,7 @@ export class VehicleService {
     if (requester.role !== 'ADMIN') {
       throw new ForbiddenException('Admin access required');
     }
-    await this.getVehicleOrThrow(vehicleId);
+    const vehicle = await this.getVehicleOrThrow(vehicleId);
 
     const existing = await this.prisma.permissionLetter.findFirst({
       where: { id: permissionLetterId, vehicleId },
@@ -1483,6 +1593,13 @@ export class VehicleService {
       where: { id: permissionLetterId },
       data,
     });
+
+    this.notifyVehicleDocumentReviewOutcomeIfNeeded(
+      vehicle.driverId,
+      VehicleDocumentKind.PERMISSION_LETTER,
+      existing.status,
+      row,
+    );
 
     return formatResponse({
       success: true,
@@ -1504,9 +1621,15 @@ export class VehicleService {
       orderBy: { createdAt: 'desc' },
     });
 
+    const data = await attachPendingToVehicleDocumentRows(
+      this.prisma,
+      VehicleDocumentKind.SCHEDULE,
+      rows,
+    );
+
     return formatResponse({
       success: true,
-      data: rows,
+      data,
       message: 'Vehicle schedules retrieved successfully',
     });
   }
@@ -1526,9 +1649,15 @@ export class VehicleService {
     });
     if (!row) throw new NotFoundException('Vehicle schedule not found');
 
+    const [data] = await attachPendingToVehicleDocumentRows(
+      this.prisma,
+      VehicleDocumentKind.SCHEDULE,
+      [row],
+    );
+
     return formatResponse({
       success: true,
-      data: row,
+      data,
       message: 'Vehicle schedule retrieved successfully',
     });
   }
@@ -1574,6 +1703,8 @@ export class VehicleService {
     if (!existing) throw new NotFoundException('Vehicle schedule not found');
 
     const isAdmin = requester.role === 'ADMIN';
+    assertDriverMayMutateLiveVehicleDocument(isAdmin, existing.status);
+
     const data: Prisma.VehicleScheduleUpdateInput = {};
     if (dto.document !== undefined) data.document = dto.document as Prisma.InputJsonValue;
     applyDriverResubmissionReviewReset(
@@ -1588,9 +1719,15 @@ export class VehicleService {
       data,
     });
 
+    const [mapped] = await attachPendingToVehicleDocumentRows(
+      this.prisma,
+      VehicleDocumentKind.SCHEDULE,
+      [row],
+    );
+
     return formatResponse({
       success: true,
-      data: row,
+      data: mapped,
       message: 'Vehicle schedule updated successfully',
     });
   }
@@ -1609,6 +1746,9 @@ export class VehicleService {
       where: { id: scheduleId, vehicleId },
     });
     if (!existing) throw new NotFoundException('Vehicle schedule not found');
+
+    const isAdmin = requester.role === 'ADMIN';
+    assertDriverMayMutateLiveVehicleDocument(isAdmin, existing.status);
 
     await this.prisma.vehicleSchedule.delete({ where: { id: scheduleId } });
 
@@ -1654,7 +1794,7 @@ export class VehicleService {
     if (requester.role !== 'ADMIN') {
       throw new ForbiddenException('Admin access required');
     }
-    await this.getVehicleOrThrow(vehicleId);
+    const vehicle = await this.getVehicleOrThrow(vehicleId);
 
     const existing = await this.prisma.vehicleSchedule.findFirst({
       where: { id: scheduleId, vehicleId },
@@ -1669,6 +1809,13 @@ export class VehicleService {
       where: { id: scheduleId },
       data,
     });
+
+    this.notifyVehicleDocumentReviewOutcomeIfNeeded(
+      vehicle.driverId,
+      VehicleDocumentKind.SCHEDULE,
+      existing.status,
+      row,
+    );
 
     return formatResponse({
       success: true,
