@@ -13,6 +13,8 @@ import { VehiclePermissionLettersController } from './controllers/vehicle-permis
 import { AdminVehiclePermissionLettersController } from './controllers/admin-vehicle-permission-letters.controller';
 import { VehicleSchedulesController } from './controllers/vehicle-schedules.controller';
 import { AdminVehicleSchedulesController } from './controllers/admin-vehicle-schedules.controller';
+import { InternalDriverDocumentsController } from './controllers/internal-driver-documents.controller';
+import { DriverDocumentStatusController } from './controllers/driver-document-status.controller';
 import { CarApiService } from './car-api.service';
 
 @Module({
@@ -44,6 +46,8 @@ import { CarApiService } from './car-api.service';
     AdminVehiclesController,
     AdminVehiclePermissionLettersController,
     AdminVehicleSchedulesController,
+    InternalDriverDocumentsController,
+    DriverDocumentStatusController,
   ],
   providers: [VehicleService, CarApiService],
   exports: [VehicleService],

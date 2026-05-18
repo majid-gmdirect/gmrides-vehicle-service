@@ -37,6 +37,7 @@ import {
   VehicleDocumentKind,
 } from '../common/vehicle-document-rejection-notification.util';
 import { applyDriverResubmissionReviewReset } from '../common/reset-document-on-driver-resubmission.util';
+import { normalizeToReviewStatus } from '../common/document-review-status.util';
 
 type Requester = { userId: string; role?: string };
 
@@ -1673,6 +1674,113 @@ export class VehicleService {
       success: true,
       data: row,
       message: 'Vehicle schedule reviewed successfully',
+    });
+  }
+
+  async getDriverVehicleDocumentStatus(
+    driverId: string,
+    requester: Requester,
+  ) {
+    this.assertDriverAccess(driverId, requester);
+    return this.getInternalDriverVehicleDocumentStatus(driverId);
+  }
+
+  /** Internal: document review statuses for all vehicles owned by a driver. */
+  async getInternalDriverVehicleDocumentStatus(driverId: string) {
+    const vehicles = await this.prisma.vehicle.findMany({
+      where: { driverId },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        plateNumber: true,
+        make: true,
+        model: true,
+        isApproved: true,
+        inspections: {
+          select: {
+            id: true,
+            status: true,
+            rejectedReason: true,
+            inspectionType: true,
+            updatedAt: true,
+          },
+        },
+        insurances: {
+          select: {
+            id: true,
+            status: true,
+            rejectedReason: true,
+            provider: true,
+            updatedAt: true,
+          },
+        },
+        pcoDocs: {
+          select: {
+            id: true,
+            status: true,
+            rejectedReason: true,
+            badgeNumber: true,
+            updatedAt: true,
+          },
+        },
+        permissionLetters: {
+          select: {
+            id: true,
+            status: true,
+            rejectedReason: true,
+            updatedAt: true,
+          },
+        },
+        vehicleSchedules: {
+          select: {
+            id: true,
+            status: true,
+            rejectedReason: true,
+            updatedAt: true,
+          },
+        },
+      },
+    });
+
+    const mapDoc = (
+      row: {
+        id: string;
+        status: DocumentStatus;
+        rejectedReason: string | null;
+        updatedAt: Date;
+      },
+      label?: string | null,
+    ) => ({
+      id: row.id,
+      status: row.status,
+      reviewStatus: normalizeToReviewStatus(row.status),
+      rejectedReason: row.rejectedReason,
+      label: label ?? null,
+      updatedAt: row.updatedAt.toISOString(),
+    });
+
+    const mappedVehicles = vehicles.map((v) => ({
+      vehicleId: v.id,
+      plateNumber: v.plateNumber,
+      make: v.make,
+      model: v.model,
+      isApproved: v.isApproved,
+      inspections: v.inspections.map((i) =>
+        mapDoc(i, i.inspectionType ?? null),
+      ),
+      insurances: v.insurances.map((i) => mapDoc(i, i.provider ?? null)),
+      pcoDocs: v.pcoDocs.map((d) => mapDoc(d, d.badgeNumber ?? null)),
+      permissionLetters: v.permissionLetters.map((p) => mapDoc(p)),
+      vehicleSchedules: v.vehicleSchedules.map((s) => mapDoc(s)),
+    }));
+
+    return formatResponse({
+      success: true,
+      data: {
+        driverId,
+        vehicles: mappedVehicles,
+      },
+      message: 'Driver vehicle document status retrieved successfully',
     });
   }
 }
