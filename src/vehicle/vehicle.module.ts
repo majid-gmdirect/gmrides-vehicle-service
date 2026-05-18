@@ -19,6 +19,9 @@ import { CarApiService } from './car-api.service';
 import { VehicleDocumentChangeRequestService } from './document-change-request/vehicle-document-change-request.service';
 import { VehicleDocumentChangeRequestController } from './document-change-request/vehicle-document-change-request.controller';
 import { AdminVehicleDocumentChangeRequestController } from './document-change-request/admin-vehicle-document-change-request.controller';
+import { VehicleChangeRequestService } from './vehicle-change-request/vehicle-change-request.service';
+import { VehicleChangeRequestController } from './vehicle-change-request/vehicle-change-request.controller';
+import { AdminVehicleChangeRequestController } from './vehicle-change-request/admin-vehicle-change-request.controller';
 
 @Module({
   imports: [
@@ -53,11 +56,14 @@ import { AdminVehicleDocumentChangeRequestController } from './document-change-r
     DriverDocumentStatusController,
     VehicleDocumentChangeRequestController,
     AdminVehicleDocumentChangeRequestController,
+    VehicleChangeRequestController,
+    AdminVehicleChangeRequestController,
   ],
   providers: [
     VehicleService,
     CarApiService,
     VehicleDocumentChangeRequestService,
+    VehicleChangeRequestService,
   ],
   exports: [VehicleService],
 })

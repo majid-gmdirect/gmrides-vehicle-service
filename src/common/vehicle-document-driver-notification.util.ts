@@ -141,3 +141,57 @@ export async function tryNotifyDriverVehicleDocumentChangeRequestReviewed(
     audience: 'driver',
   });
 }
+
+/** Email driver when admin approves their vehicle profile (isApproved). */
+export async function tryNotifyDriverVehicleApproved(
+  notificationClient: ClientProxy,
+  logger: Logger,
+  params: { driverUserId: string },
+): Promise<void> {
+  await emitEmailNotification(notificationClient, logger, {
+    title: 'Your vehicle was approved',
+    description:
+      '<p>Your vehicle profile has been reviewed and <strong>approved</strong>.</p>' +
+      '<p>To change vehicle details after approval, submit a change request from your driver account.</p>',
+    userId: params.driverUserId,
+    audience: 'driver',
+  });
+}
+
+/** Email driver when admin accepts or rejects a vehicle profile change request. */
+export async function tryNotifyDriverVehicleChangeRequestReviewed(
+  notificationClient: ClientProxy,
+  logger: Logger,
+  params: {
+    driverUserId: string;
+    accepted: boolean;
+    rejectedReason?: string | null;
+  },
+): Promise<void> {
+  const title = params.accepted
+    ? 'Your vehicle update was accepted'
+    : 'Your vehicle update was not accepted';
+
+  let description: string;
+  if (params.accepted) {
+    description =
+      '<p>Your requested changes to your vehicle profile were <strong>accepted</strong> and are now active.</p>' +
+      '<p>Sign in to your driver account to view the updated vehicle.</p>';
+  } else {
+    const reason = params.rejectedReason?.trim();
+    const reasonBlock = reason
+      ? `<p><strong>Reason:</strong> ${escapeHtml(reason)}</p>`
+      : '';
+    description =
+      '<p>Your requested changes to your vehicle profile were <strong>not accepted</strong>.</p>' +
+      reasonBlock +
+      '<p>Your current approved vehicle details are unchanged. You may submit a new change request if needed.</p>';
+  }
+
+  await emitEmailNotification(notificationClient, logger, {
+    title,
+    description,
+    userId: params.driverUserId,
+    audience: 'driver',
+  });
+}

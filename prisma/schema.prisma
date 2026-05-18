@@ -70,6 +70,7 @@ model Vehicle {
   permissionLetters PermissionLetter[]
   vehicleSchedules VehicleSchedule[]
   documentChangeRequests VehicleDocumentChangeRequest[]
+  changeRequests         VehicleChangeRequest[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -182,4 +183,30 @@ model VehicleDocumentChangeRequest {
   @@index([driverId, status])
   @@index([vehicleId, status])
   @@index([targetType, targetDocumentId, status])
+}
+
+/// Driver-proposed updates to an approved vehicle profile (make, model, plate, uploads, etc.).
+model VehicleChangeRequest {
+  id String @id @default(uuid())
+
+  driverId  String
+  vehicleId String
+
+  status VehicleDocumentChangeRequestStatus @default(PENDING_REVIEW)
+
+  /// Proposed vehicle snapshot (editable driver fields only).
+  payload     Json
+  driver_note String?
+
+  rejected_reason String?
+  reviewed_by_id  String?
+  reviewed_at     DateTime?
+
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([driverId, status])
+  @@index([vehicleId, status])
 }

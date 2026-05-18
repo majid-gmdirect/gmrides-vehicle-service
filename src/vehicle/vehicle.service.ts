@@ -45,6 +45,9 @@ import { applyDriverResubmissionReviewReset } from '../common/reset-document-on-
 import { normalizeToReviewStatus } from '../common/document-review-status.util';
 import { assertDriverMayMutateLiveVehicleDocument } from '../common/vehicle-document-mutation.policy';
 import { attachPendingToVehicleDocumentRows } from '../common/pending-vehicle-document-change-request.util';
+import { assertDriverMayMutateLiveVehicle } from '../common/vehicle-mutation.policy';
+import { attachPendingToVehicleRows } from '../common/pending-vehicle-change-request.util';
+import { tryNotifyDriverVehicleApproved } from '../common/vehicle-document-driver-notification.util';
 
 type Requester = { userId: string; role?: string };
 
@@ -482,9 +485,11 @@ export class VehicleService {
       },
     });
 
+    const data = await attachPendingToVehicleRows(this.prisma, vehicles);
+
     return formatResponse({
       success: true,
-      data: vehicles,
+      data,
       message: 'Vehicles retrieved successfully',
     });
   }
@@ -508,9 +513,11 @@ export class VehicleService {
     });
     if (!vehicle) throw new NotFoundException('Vehicle not found');
 
+    const [data] = await attachPendingToVehicleRows(this.prisma, [vehicle]);
+
     return formatResponse({
       success: true,
-      data: vehicle,
+      data,
       message: 'Vehicle retrieved successfully',
     });
   }
@@ -523,7 +530,10 @@ export class VehicleService {
   ) {
     this.assertDriverAccess(driverId, requester);
     await this.assertDriverExistsAndIsDriver(driverId);
-    await this.getVehicleForDriverOrThrow(driverId, vehicleId);
+    const existing = await this.getVehicleForDriverOrThrow(driverId, vehicleId);
+
+    const isAdmin = requester.role === 'ADMIN';
+    assertDriverMayMutateLiveVehicle(isAdmin, existing.isApproved);
 
     const data: Prisma.VehicleUpdateInput = {};
     if (dto.make !== undefined) data.make = dto.make.trim();
@@ -555,9 +565,11 @@ export class VehicleService {
       data,
     });
 
+    const [mapped] = await attachPendingToVehicleRows(this.prisma, [vehicle]);
+
     return formatResponse({
       success: true,
-      data: vehicle,
+      data: mapped,
       message: 'Vehicle updated successfully',
     });
   }
@@ -565,7 +577,10 @@ export class VehicleService {
   async deleteVehicle(driverId: string, vehicleId: string, requester: Requester) {
     this.assertDriverAccess(driverId, requester);
     await this.assertDriverExistsAndIsDriver(driverId);
-    await this.getVehicleForDriverOrThrow(driverId, vehicleId);
+    const existing = await this.getVehicleForDriverOrThrow(driverId, vehicleId);
+
+    const isAdmin = requester.role === 'ADMIN';
+    assertDriverMayMutateLiveVehicle(isAdmin, existing.isApproved);
 
     await this.prisma.vehicle.delete({ where: { id: vehicleId } });
 
@@ -653,12 +668,20 @@ export class VehicleService {
   }
 
   async adminApproveVehicle(vehicleId: string, dto: UpdateVehicleApprovedDto) {
-    await this.getVehicleOrThrow(vehicleId);
+    const existing = await this.getVehicleOrThrow(vehicleId);
 
     const vehicle = await this.prisma.vehicle.update({
       where: { id: vehicleId },
       data: { isApproved: dto.isApproved },
     });
+
+    if (dto.isApproved && !existing.isApproved) {
+      void tryNotifyDriverVehicleApproved(
+        this.notificationClient,
+        this.logger,
+        { driverUserId: vehicle.driverId },
+      );
+    }
 
     return formatResponse({
       success: true,

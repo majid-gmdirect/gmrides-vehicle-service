@@ -1,0 +1,2 @@
+-- RenameIndex
+ALTER INDEX "VehicleDocumentChangeRequest_targetType_targetDocumentId_s_idx" RENAME TO "VehicleDocumentChangeRequest_targetType_targetDocumentId_st_idx";
