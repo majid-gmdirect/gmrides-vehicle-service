@@ -1953,5 +1953,51 @@ export class VehicleService {
       message: 'Driver vehicle document status retrieved successfully',
     });
   }
+
+  /** Internal: driver user IDs with at least one expired accepted vehicle document. */
+  async getInternalExpiredDocumentDriverIds(reference = new Date()) {
+    const acceptedExpiredDoc: Prisma.VehicleWhereInput = {
+      OR: [
+        {
+          inspections: {
+            some: {
+              status: DocumentStatus.ACCEPTED,
+              expiryDate: { not: null, lt: reference },
+            },
+          },
+        },
+        {
+          insurances: {
+            some: {
+              status: DocumentStatus.ACCEPTED,
+              endDate: { not: null, lt: reference },
+            },
+          },
+        },
+        {
+          pcoDocs: {
+            some: {
+              status: DocumentStatus.ACCEPTED,
+              expiryDate: { not: null, lt: reference },
+            },
+          },
+        },
+      ],
+    };
+
+    const vehicles = await this.prisma.vehicle.findMany({
+      where: acceptedExpiredDoc,
+      select: { driverId: true },
+      distinct: ['driverId'],
+    });
+
+    const driverIds = vehicles.map((v) => v.driverId);
+
+    return formatResponse({
+      success: true,
+      data: { driverIds },
+      message: 'Drivers with expired vehicle documents retrieved successfully',
+    });
+  }
 }
 
