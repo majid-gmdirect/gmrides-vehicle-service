@@ -591,6 +591,39 @@ export class VehicleService {
     });
   }
 
+  private buildVehicleExpiredDocumentWhere(
+    reference = new Date(),
+  ): Prisma.VehicleWhereInput {
+    return {
+      OR: [
+        {
+          inspections: {
+            some: {
+              status: DocumentStatus.ACCEPTED,
+              expiryDate: { not: null, lt: reference },
+            },
+          },
+        },
+        {
+          insurances: {
+            some: {
+              status: DocumentStatus.ACCEPTED,
+              endDate: { not: null, lt: reference },
+            },
+          },
+        },
+        {
+          pcoDocs: {
+            some: {
+              status: DocumentStatus.ACCEPTED,
+              expiryDate: { not: null, lt: reference },
+            },
+          },
+        },
+      ],
+    };
+  }
+
   async adminListVehicles(query: ListVehiclesQueryDto) {
     const {
       search,
@@ -599,8 +632,10 @@ export class VehicleService {
       orderBy = 'desc',
       isActive,
       isApproved,
+      isExpired,
     } = query;
     const skip = (page - 1) * limit;
+    const expiredDocumentWhere = this.buildVehicleExpiredDocumentWhere();
 
     const where: Prisma.VehicleWhereInput = {
       ...(search && {
@@ -618,6 +653,8 @@ export class VehicleService {
       }),
       ...(isActive !== undefined && { isActive }),
       ...(isApproved !== undefined && { isApproved }),
+      ...(isExpired === true && expiredDocumentWhere),
+      ...(isExpired === false && { NOT: expiredDocumentWhere }),
     };
 
     // If search looks like a name, resolve matching driverIds via user-service and filter by those ids too.
@@ -1956,37 +1993,8 @@ export class VehicleService {
 
   /** Internal: driver user IDs with at least one expired accepted vehicle document. */
   async getInternalExpiredDocumentDriverIds(reference = new Date()) {
-    const acceptedExpiredDoc: Prisma.VehicleWhereInput = {
-      OR: [
-        {
-          inspections: {
-            some: {
-              status: DocumentStatus.ACCEPTED,
-              expiryDate: { not: null, lt: reference },
-            },
-          },
-        },
-        {
-          insurances: {
-            some: {
-              status: DocumentStatus.ACCEPTED,
-              endDate: { not: null, lt: reference },
-            },
-          },
-        },
-        {
-          pcoDocs: {
-            some: {
-              status: DocumentStatus.ACCEPTED,
-              expiryDate: { not: null, lt: reference },
-            },
-          },
-        },
-      ],
-    };
-
     const vehicles = await this.prisma.vehicle.findMany({
-      where: acceptedExpiredDoc,
+      where: this.buildVehicleExpiredDocumentWhere(reference),
       select: { driverId: true },
       distinct: ['driverId'],
     });

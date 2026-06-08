@@ -102,6 +102,13 @@ export function AdminListVehiclesSwagger(): MethodDecorator {
     ApiQuery({ name: 'orderBy', required: false, enum: ['asc', 'desc'] }),
     ApiQuery({ name: 'isApproved', required: false, type: Boolean }),
     ApiQuery({ name: 'isActive', required: false, type: Boolean }),
+    ApiQuery({
+      name: 'isExpired',
+      required: false,
+      type: Boolean,
+      description:
+        'Filter by expired accepted vehicle documents (inspection, insurance, PCO)',
+    }),
     ApiOkResponse({ description: 'Vehicles fetched successfully' }),
     ApiForbiddenResponse({ description: 'Access denied' }),
   );

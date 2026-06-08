@@ -68,5 +68,23 @@ export class ListVehiclesQueryDto {
   })
   @IsBoolean()
   isActive?: boolean;
+
+  @ApiPropertyOptional({
+    description:
+      'When true, only vehicles with at least one expired accepted document (inspection, insurance, or PCO). When false, only vehicles with no expired documents.',
+    example: true,
+  })
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === true || value === false) return value;
+    if (typeof value === 'string') {
+      const v = value.trim().toLowerCase();
+      if (v === 'true') return true;
+      if (v === 'false') return false;
+    }
+    return value;
+  })
+  @IsBoolean()
+  isExpired?: boolean;
 }
 
