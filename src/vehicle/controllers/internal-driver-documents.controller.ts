@@ -1,7 +1,8 @@
-import { Controller, Get, Param } from '@nestjs/common';
+import { Controller, Get, Param, Query } from '@nestjs/common';
 import { ApiExcludeController } from '@nestjs/swagger';
 import { InternalRoute } from '../../auth/internal.decorator';
 import { VehicleService } from '../vehicle.service';
+import { DriverDocumentExpiryQueryDto } from '../dto/driver-document-expiry-query.dto';
 
 @ApiExcludeController()
 @Controller('internal/driver')
@@ -18,5 +19,17 @@ export class InternalDriverDocumentsController {
   @InternalRoute()
   getDriverVehicleDocumentStatus(@Param('driverId') driverId: string) {
     return this.vehicleService.getInternalDriverVehicleDocumentStatus(driverId);
+  }
+
+  @Get(':driverId/document-expiry')
+  @InternalRoute()
+  getDriverDocumentExpiry(
+    @Param('driverId') driverId: string,
+    @Query() query: DriverDocumentExpiryQueryDto,
+  ) {
+    return this.vehicleService.getInternalDriverDocumentExpiry(
+      driverId,
+      query.horizonDays,
+    );
   }
 }

@@ -43,6 +43,12 @@ import {
 } from '../common/vehicle-document-driver-notification.util';
 import { applyDriverResubmissionReviewReset } from '../common/reset-document-on-driver-resubmission.util';
 import { normalizeToReviewStatus } from '../common/document-review-status.util';
+import {
+  classifyExpiryBucket,
+  daysUntilExpiry,
+  DocumentExpiryItem,
+  sortByDaysUntilExpiry,
+} from '../common/document-expiry.util';
 import { assertDriverMayMutateLiveVehicleDocument } from '../common/vehicle-document-mutation.policy';
 import { attachPendingToVehicleDocumentRows } from '../common/pending-vehicle-document-change-request.util';
 import { assertDriverMayMutateLiveVehicle } from '../common/vehicle-mutation.policy';
@@ -1988,6 +1994,153 @@ export class VehicleService {
         vehicles: mappedVehicles,
       },
       message: 'Driver vehicle document status retrieved successfully',
+    });
+  }
+
+  /** Internal: expired and soon-to-expire accepted vehicle documents for a driver. */
+  async getInternalDriverDocumentExpiry(
+    driverId: string,
+    horizonDays = 7,
+    reference = new Date(),
+  ) {
+    const vehicles = await this.prisma.vehicle.findMany({
+      where: { driverId },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        plateNumber: true,
+        make: true,
+        model: true,
+        inspections: {
+          where: {
+            status: DocumentStatus.ACCEPTED,
+            expiryDate: { not: null },
+          },
+          select: {
+            id: true,
+            status: true,
+            inspectionType: true,
+            expiryDate: true,
+          },
+        },
+        insurances: {
+          where: {
+            status: DocumentStatus.ACCEPTED,
+            endDate: { not: null },
+          },
+          select: {
+            id: true,
+            status: true,
+            provider: true,
+            endDate: true,
+          },
+        },
+        pcoDocs: {
+          where: {
+            status: DocumentStatus.ACCEPTED,
+            expiryDate: { not: null },
+          },
+          select: {
+            id: true,
+            status: true,
+            badgeNumber: true,
+            expiryDate: true,
+          },
+        },
+      },
+    });
+
+    const expired: DocumentExpiryItem[] = [];
+    const expiringSoon: DocumentExpiryItem[] = [];
+
+    for (const vehicle of vehicles) {
+      const vehicleLabel =
+        [vehicle.make, vehicle.model].filter(Boolean).join(' ').trim() ||
+        vehicle.plateNumber;
+
+      for (const inspection of vehicle.inspections) {
+        const expiry = inspection.expiryDate!;
+        const bucket = classifyExpiryBucket(expiry, reference, horizonDays);
+        if (!bucket) continue;
+
+        const item: DocumentExpiryItem = {
+          scope: 'VEHICLE',
+          documentType: 'VEHICLE_INSPECTION',
+          documentId: inspection.id,
+          label: inspection.inspectionType
+            ? `${inspection.inspectionType} Inspection`
+            : 'Vehicle Inspection',
+          expiryDate: expiry.toISOString(),
+          daysUntilExpiry: daysUntilExpiry(expiry, reference),
+          reviewStatus: 'ACCEPTED',
+          vehicleId: vehicle.id,
+          plateNumber: vehicle.plateNumber,
+          vehicleLabel,
+          inspectionType: inspection.inspectionType,
+        };
+
+        if (bucket === 'expired') expired.push(item);
+        else expiringSoon.push(item);
+      }
+
+      for (const insurance of vehicle.insurances) {
+        const expiry = insurance.endDate!;
+        const bucket = classifyExpiryBucket(expiry, reference, horizonDays);
+        if (!bucket) continue;
+
+        const item: DocumentExpiryItem = {
+          scope: 'VEHICLE',
+          documentType: 'VEHICLE_INSURANCE',
+          documentId: insurance.id,
+          label: insurance.provider
+            ? `${insurance.provider} Insurance`
+            : 'Vehicle Insurance',
+          expiryDate: expiry.toISOString(),
+          daysUntilExpiry: daysUntilExpiry(expiry, reference),
+          reviewStatus: 'ACCEPTED',
+          vehicleId: vehicle.id,
+          plateNumber: vehicle.plateNumber,
+          vehicleLabel,
+        };
+
+        if (bucket === 'expired') expired.push(item);
+        else expiringSoon.push(item);
+      }
+
+      for (const pcoDoc of vehicle.pcoDocs) {
+        const expiry = pcoDoc.expiryDate!;
+        const bucket = classifyExpiryBucket(expiry, reference, horizonDays);
+        if (!bucket) continue;
+
+        const item: DocumentExpiryItem = {
+          scope: 'VEHICLE',
+          documentType: 'VEHICLE_PCO',
+          documentId: pcoDoc.id,
+          label: pcoDoc.badgeNumber
+            ? `Vehicle PCO (${pcoDoc.badgeNumber})`
+            : 'Vehicle PCO',
+          expiryDate: expiry.toISOString(),
+          daysUntilExpiry: daysUntilExpiry(expiry, reference),
+          reviewStatus: 'ACCEPTED',
+          vehicleId: vehicle.id,
+          plateNumber: vehicle.plateNumber,
+          vehicleLabel,
+        };
+
+        if (bucket === 'expired') expired.push(item);
+        else expiringSoon.push(item);
+      }
+    }
+
+    return formatResponse({
+      success: true,
+      data: {
+        driverId,
+        horizonDays,
+        expired: sortByDaysUntilExpiry(expired),
+        expiringSoon: sortByDaysUntilExpiry(expiringSoon),
+      },
+      message: 'Driver vehicle document expiry retrieved successfully',
     });
   }
 
