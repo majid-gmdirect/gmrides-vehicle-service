@@ -142,22 +142,6 @@ export async function tryNotifyDriverVehicleDocumentChangeRequestReviewed(
   });
 }
 
-/** Email driver when admin requests optional vehicle documents. */
-export async function tryNotifyDriverOptionalDocumentsRequested(
-  notificationClient: ClientProxy,
-  logger: Logger,
-  params: { driverUserId: string },
-): Promise<void> {
-  await emitEmailNotification(notificationClient, logger, {
-    title: 'Additional vehicle documents required',
-    description:
-      '<p>Your vehicle profile requires additional documents: <strong>permission letter</strong> and <strong>vehicle schedule</strong>.</p>' +
-      '<p>Please sign in to your driver account, upload both documents, and wait for admin review.</p>',
-    userId: params.driverUserId,
-    audience: 'driver',
-  });
-}
-
 /** Email driver when admin approves their vehicle profile (isApproved). */
 export async function tryNotifyDriverVehicleApproved(
   notificationClient: ClientProxy,
