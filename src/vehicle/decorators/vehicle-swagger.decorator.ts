@@ -28,6 +28,10 @@ import {
   UpdateVehicleDto,
   UpdateVehicleActiveDto,
   UpdateVehicleApprovedDto,
+  UpdateVehicleRequestOptionalDocumentsDto,
+  CreateLogBookV5Dto,
+  UpdateLogBookV5Dto,
+  AdminReviewLogBookV5Dto,
 } from '../dto';
 
 export function CreateVehicleSwagger(): MethodDecorator {
@@ -94,7 +98,7 @@ export function AdminListVehiclesSwagger(): MethodDecorator {
     ApiOperation({
       summary: 'Admin: list all vehicles',
       description:
-        'Each vehicle includes images, inspections, insurances, PCO documents, permission letters, vehicle schedules, and driver summary.',
+        'Each vehicle includes images, log book V5, inspections, insurances, PCO documents, permission letters, vehicle schedules, requiestOptionalDocuments, and driver summary.',
     }),
     ApiQuery({ name: 'search', required: false, type: String }),
     ApiQuery({ name: 'page', required: false, type: Number }),
@@ -133,6 +137,24 @@ export function AdminSetVehicleActiveSwagger(): MethodDecorator {
     ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
     ApiBody({ type: UpdateVehicleActiveDto }),
     ApiOkResponse({ description: 'Vehicle active status updated successfully' }),
+    ApiNotFoundResponse({ description: 'Vehicle not found' }),
+    ApiForbiddenResponse({ description: 'Access denied' }),
+  );
+}
+
+export function AdminRequestOptionalDocumentsSwagger(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({
+      summary: 'Admin: request optional documents from driver',
+      description:
+        'Sets requiestOptionalDocuments on the vehicle. Cleared automatically when both permission letter and vehicle schedule are accepted.',
+    }),
+    ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
+    ApiBody({ type: UpdateVehicleRequestOptionalDocumentsDto }),
+    ApiOkResponse({
+      description: 'Vehicle optional document request updated successfully',
+    }),
     ApiNotFoundResponse({ description: 'Vehicle not found' }),
     ApiForbiddenResponse({ description: 'Access denied' }),
   );
@@ -550,6 +572,120 @@ export function AdminReviewPermissionLetterSwagger(): MethodDecorator {
     ApiBody({ type: AdminReviewPermissionLetterDto }),
     ApiOkResponse({ description: 'Permission letter reviewed successfully' }),
     ApiNotFoundResponse({ description: 'Permission letter not found' }),
+    ApiForbiddenResponse({ description: 'Access denied' }),
+  );
+}
+
+// -----------------------
+// Log book V5
+// -----------------------
+export function ListLogBookV5Swagger(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({ summary: 'List log book V5 documents for a vehicle (DRIVER/ADMIN)' }),
+    ApiParam({ name: 'driverId', type: String, description: 'Driver user ID' }),
+    ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
+    ApiOkResponse({ description: 'Log book V5 documents retrieved successfully' }),
+    ApiNotFoundResponse({ description: 'Vehicle not found' }),
+    ApiForbiddenResponse({ description: 'Access denied' }),
+  );
+}
+
+export function GetLogBookV5Swagger(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({ summary: 'Get a log book V5 document (DRIVER/ADMIN)' }),
+    ApiParam({ name: 'driverId', type: String, description: 'Driver user ID' }),
+    ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
+    ApiParam({ name: 'logBookV5Id', type: String, description: 'Log book V5 ID' }),
+    ApiOkResponse({ description: 'Log book V5 retrieved successfully' }),
+    ApiNotFoundResponse({ description: 'Log book V5 not found' }),
+    ApiForbiddenResponse({ description: 'Access denied' }),
+  );
+}
+
+export function CreateLogBookV5Swagger(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({
+      summary: 'Create a log book V5 document (DRIVER/ADMIN)',
+      description:
+        'Upload document payload. Review status/rejectedReason is set via admin review endpoints.',
+    }),
+    ApiParam({ name: 'driverId', type: String, description: 'Driver user ID' }),
+    ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
+    ApiBody({ type: CreateLogBookV5Dto }),
+    ApiOkResponse({ description: 'Log book V5 created successfully' }),
+    ApiNotFoundResponse({ description: 'Vehicle not found' }),
+    ApiForbiddenResponse({ description: 'Access denied' }),
+  );
+}
+
+export function UpdateLogBookV5Swagger(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({
+      summary: 'Update a log book V5 document (DRIVER/ADMIN)',
+      description:
+        'Update document fields; uploading a new file on a rejected record resets status to PENDING. Admin review uses separate review endpoints.',
+    }),
+    ApiParam({ name: 'driverId', type: String, description: 'Driver user ID' }),
+    ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
+    ApiParam({ name: 'logBookV5Id', type: String, description: 'Log book V5 ID' }),
+    ApiBody({ type: UpdateLogBookV5Dto }),
+    ApiOkResponse({ description: 'Log book V5 updated successfully' }),
+    ApiNotFoundResponse({ description: 'Log book V5 not found' }),
+    ApiForbiddenResponse({ description: 'Access denied' }),
+  );
+}
+
+export function DeleteLogBookV5Swagger(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({ summary: 'Delete a log book V5 document (DRIVER/ADMIN)' }),
+    ApiParam({ name: 'driverId', type: String, description: 'Driver user ID' }),
+    ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
+    ApiParam({ name: 'logBookV5Id', type: String, description: 'Log book V5 ID' }),
+    ApiOkResponse({ description: 'Log book V5 deleted successfully' }),
+    ApiNotFoundResponse({ description: 'Log book V5 not found' }),
+    ApiForbiddenResponse({ description: 'Access denied' }),
+  );
+}
+
+export function AdminListLogBookV5Swagger(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({ summary: 'Admin: list log book V5 documents' }),
+    ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
+    ApiOkResponse({ description: 'Log book V5 documents retrieved successfully' }),
+    ApiNotFoundResponse({ description: 'Vehicle not found' }),
+    ApiForbiddenResponse({ description: 'Access denied' }),
+  );
+}
+
+export function AdminGetLogBookV5Swagger(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({ summary: 'Admin: get log book V5 document' }),
+    ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
+    ApiParam({ name: 'logBookV5Id', type: String, description: 'Log book V5 ID' }),
+    ApiOkResponse({ description: 'Log book V5 retrieved successfully' }),
+    ApiNotFoundResponse({ description: 'Log book V5 not found' }),
+    ApiForbiddenResponse({ description: 'Access denied' }),
+  );
+}
+
+export function AdminReviewLogBookV5Swagger(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({
+      summary: 'Admin: review a log book V5 document (set status / rejectedReason)',
+    }),
+    ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
+    ApiParam({ name: 'logBookV5Id', type: String, description: 'Log book V5 ID' }),
+    ApiBody({ type: AdminReviewLogBookV5Dto }),
+    ApiOkResponse({ description: 'Log book V5 reviewed successfully' }),
+    ApiNotFoundResponse({ description: 'Log book V5 not found' }),
     ApiForbiddenResponse({ description: 'Access denied' }),
   );
 }

@@ -1,5 +1,6 @@
 import {
   InspectionType,
+  LogBookV5,
   PermissionLetter,
   Prisma,
   VehicleDocumentKind,
@@ -236,7 +237,7 @@ export function pcoDocumentPayloadToPrismaUpdate(
 }
 
 export function buildDocumentOnlyChangePayload(
-  existing: PermissionLetter | VehicleSchedule,
+  existing: PermissionLetter | VehicleSchedule | LogBookV5,
   dto: Partial<{ document?: Record<string, unknown> }>,
 ): DocumentOnlyChangePayload {
   return {
@@ -246,7 +247,7 @@ export function buildDocumentOnlyChangePayload(
 
 export function documentOnlyChangePayloadDiffers(
   payload: DocumentOnlyChangePayload,
-  existing: PermissionLetter | VehicleSchedule,
+  existing: PermissionLetter | VehicleSchedule | LogBookV5,
 ): boolean {
   const current = buildDocumentOnlyChangePayload(existing, {});
   return stableJson(current.document) !== stableJson(payload.document);
@@ -254,7 +255,10 @@ export function documentOnlyChangePayloadDiffers(
 
 export function documentOnlyPayloadToPrismaUpdate(
   payload: DocumentOnlyChangePayload,
-): Prisma.PermissionLetterUpdateInput | Prisma.VehicleScheduleUpdateInput {
+):
+  | Prisma.PermissionLetterUpdateInput
+  | Prisma.VehicleScheduleUpdateInput
+  | Prisma.LogBookV5UpdateInput {
   return {
     document: payload.document as Prisma.InputJsonValue,
   };
@@ -294,7 +298,8 @@ export function mapChangePayloadForResponse(
       };
     }
     case VehicleDocumentKind.PERMISSION_LETTER:
-    case VehicleDocumentKind.SCHEDULE: {
+    case VehicleDocumentKind.SCHEDULE:
+    case VehicleDocumentKind.LOG_BOOK_V5: {
       const p = payload as DocumentOnlyChangePayload;
       return { document: pickPublicMediaRef(p.document) };
     }
@@ -317,6 +322,8 @@ export function vehicleDocumentKindLabel(
       return 'permission letter';
     case VehicleDocumentKind.SCHEDULE:
       return 'vehicle schedule';
+    case VehicleDocumentKind.LOG_BOOK_V5:
+      return 'log book V5';
     default:
       return 'vehicle document';
   }

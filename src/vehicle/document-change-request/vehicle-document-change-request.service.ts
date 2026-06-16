@@ -179,6 +179,13 @@ export class VehicleDocumentChangeRequestService {
         });
         return row?.status ?? null;
       }
+      case VehicleDocumentKind.LOG_BOOK_V5: {
+        const row = await db.logBookV5.findFirst({
+          where: { id: targetDocumentId, vehicleId },
+          select: { status: true },
+        });
+        return row?.status ?? null;
+      }
       default:
         return null;
     }
@@ -438,6 +445,46 @@ export class VehicleDocumentChangeRequestService {
     });
   }
 
+  async submitLogBookV5(
+    driverId: string,
+    vehicleId: string,
+    logBookV5Id: string,
+    dto: SubmitDocumentOnlyChangeRequestDto,
+    requester: Requester,
+  ) {
+    if (requester.role === 'ADMIN') {
+      throw new ForbiddenException(
+        'Admins cannot submit change requests; update the live document directly',
+      );
+    }
+    this.assertDriverAccess(driverId, requester);
+    await this.getVehicleForDriverOrThrow(driverId, vehicleId);
+
+    const existing = await this.prisma.logBookV5.findFirst({
+      where: { id: logBookV5Id, vehicleId },
+    });
+    if (!existing) throw new NotFoundException('Log book V5 not found');
+    await this.assertAcceptedTarget(
+      VehicleDocumentKind.LOG_BOOK_V5,
+      logBookV5Id,
+      vehicleId,
+    );
+
+    const payload = buildDocumentOnlyChangePayload(existing, dto);
+    if (!documentOnlyChangePayloadDiffers(payload, existing)) {
+      throw new BadRequestException('No changes detected in the change request');
+    }
+
+    return this.createChangeRequest({
+      driverId,
+      vehicleId,
+      targetType: VehicleDocumentKind.LOG_BOOK_V5,
+      targetDocumentId: logBookV5Id,
+      payload,
+      driver_note: dto.driver_note,
+    });
+  }
+
   async listForDocument(
     driverId: string,
     vehicleId: string,
@@ -633,6 +680,14 @@ export class VehicleDocumentChangeRequestService {
         await tx.vehicleSchedule.update({
           where: { id: changeRequest.targetDocumentId },
           data: documentOnlyPayloadToPrismaUpdate(payload as DocumentOnlyChangePayload),
+        });
+        return;
+      case VehicleDocumentKind.LOG_BOOK_V5:
+        await tx.logBookV5.update({
+          where: { id: changeRequest.targetDocumentId },
+          data: documentOnlyPayloadToPrismaUpdate(
+            payload as DocumentOnlyChangePayload,
+          ) as Prisma.LogBookV5UpdateInput,
         });
         return;
       default:

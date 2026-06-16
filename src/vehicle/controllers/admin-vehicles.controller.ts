@@ -1,10 +1,16 @@
 import { Body, Controller, Get, Param, Patch, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Roles } from '../../auth/roles.decorator';
-import { ListVehiclesQueryDto, UpdateVehicleActiveDto, UpdateVehicleApprovedDto } from '../dto';
+import {
+  ListVehiclesQueryDto,
+  UpdateVehicleActiveDto,
+  UpdateVehicleApprovedDto,
+  UpdateVehicleRequestOptionalDocumentsDto,
+} from '../dto';
 import {
   AdminApproveVehicleSwagger,
   AdminListVehiclesSwagger,
+  AdminRequestOptionalDocumentsSwagger,
   AdminSetVehicleActiveSwagger,
 } from '../decorators/vehicle-swagger.decorator';
 import { VehicleService } from '../vehicle.service';
@@ -39,6 +45,16 @@ export class AdminVehiclesController {
     @Body() dto: UpdateVehicleActiveDto,
   ) {
     return this.vehicleService.adminSetActive(vehicleId, dto);
+  }
+
+  @Patch('admin/vehicles/:vehicleId/request-optional-documents')
+  @AdminRequestOptionalDocumentsSwagger()
+  @Roles('ADMIN')
+  adminRequestOptionalDocuments(
+    @Param('vehicleId') vehicleId: string,
+    @Body() dto: UpdateVehicleRequestOptionalDocumentsDto,
+  ) {
+    return this.vehicleService.adminRequestOptionalDocuments(vehicleId, dto);
   }
 }
 

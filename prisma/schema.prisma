@@ -34,6 +34,7 @@ enum VehicleDocumentKind {
   PCO_DOCUMENT
   PERMISSION_LETTER
   SCHEDULE
+  LOG_BOOK_V5
 }
 
 enum VehicleDocumentChangeRequestStatus {
@@ -63,17 +64,22 @@ model Vehicle {
   permission_letter Json?
   vehicle_schedule  Json?
 
-  images      VehicleImage[]
-  inspections VehicleInspection[]
-  insurances  VehicleInsurance[]
-  pcoDocs     VehiclePcoDocument[]
-  permissionLetters PermissionLetter[]
-  vehicleSchedules VehicleSchedule[]
+  images                    VehicleImage[]
+  // mandatory documents
+  logBookV5                 LogBookV5[]
+  inspections               VehicleInspection[]
+  insurances                VehicleInsurance[]
+  pcoDocs                   VehiclePcoDocument[]
+  // optional documents
+  permissionLetters         PermissionLetter[]
+  vehicleSchedules          VehicleSchedule[]
+  // request driver to upload optional documents (permission letter, vehicle schedule)
+  requiestOptionalDocuments Boolean              @default(false)
+
   documentChangeRequests VehicleDocumentChangeRequest[]
   changeRequests         VehicleChangeRequest[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt              DateTime                       @default(now())
+  updatedAt              DateTime                       @updatedAt
 }
 
 // ==========================
@@ -89,6 +95,19 @@ model VehicleImage {
   vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
+}
+
+model LogBookV5 {
+  id             String         @id @default(uuid())
+  vehicleId      String
+  document       Json
+  status         DocumentStatus @default(PENDING)
+  rejectedReason String?
+  vehicle        Vehicle        @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([vehicleId, status])
 }
 
 model VehicleInspection {
@@ -134,46 +153,45 @@ model VehiclePcoDocument {
   updatedAt      DateTime       @updatedAt
 }
 
-
 model PermissionLetter {
-  id String @id @default(uuid())
-  vehicleId String
-  document Json?
-  status DocumentStatus @default(PENDING)
+  id             String         @id @default(uuid())
+  vehicleId      String
+  document       Json?
+  status         DocumentStatus @default(PENDING)
   rejectedReason String?
-  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  vehicle        Vehicle        @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 }
 
 model VehicleSchedule {
-  id String @id @default(uuid())
-  vehicleId String
-  document Json?
-  status DocumentStatus @default(PENDING)
+  id             String         @id @default(uuid())
+  vehicleId      String
+  document       Json?
+  status         DocumentStatus @default(PENDING)
   rejectedReason String?
-  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  vehicle        Vehicle        @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 }
 
 model VehicleDocumentChangeRequest {
   id String @id @default(uuid())
 
-  driverId String
-  vehicleId String
-  targetType VehicleDocumentKind
+  driverId         String
+  vehicleId        String
+  targetType       VehicleDocumentKind
   targetDocumentId String
 
   status VehicleDocumentChangeRequestStatus @default(PENDING_REVIEW)
 
   /// Proposed document snapshot (editable fields only; shape depends on targetType).
-  payload Json
+  payload     Json
   driver_note String?
 
   rejected_reason String?
-  reviewed_by_id String?
-  reviewed_at DateTime?
+  reviewed_by_id  String?
+  reviewed_at     DateTime?
 
   vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
 

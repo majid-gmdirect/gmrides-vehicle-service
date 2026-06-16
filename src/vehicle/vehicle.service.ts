@@ -25,9 +25,12 @@ import {
   CreateVehiclePcoDocumentDto,
   CreatePermissionLetterDto,
   CreateVehicleScheduleDto,
+  CreateLogBookV5Dto,
   ListVehiclesQueryDto,
   AdminReviewPermissionLetterDto,
   AdminReviewVehicleScheduleDto,
+  AdminReviewLogBookV5Dto,
+  UpdateVehicleRequestOptionalDocumentsDto,
   UpdateVehicleActiveDto,
   UpdateVehicleApprovedDto,
   UpdateVehicleDto,
@@ -36,6 +39,7 @@ import {
   UpdateVehiclePcoDocumentDto,
   UpdatePermissionLetterDto,
   UpdateVehicleScheduleDto,
+  UpdateLogBookV5Dto,
 } from './dto';
 import {
   tryNotifyDriverVehicleDocumentAccepted,
@@ -686,6 +690,7 @@ export class VehicleService {
         orderBy: { createdAt: orderBy },
         include: {
           images: true,
+          logBookV5: true,
           inspections: true,
           insurances: true,
           pcoDocs: true,
@@ -746,6 +751,50 @@ export class VehicleService {
       data: vehicle,
       message: 'Vehicle active status updated successfully',
     });
+  }
+
+  async adminRequestOptionalDocuments(
+    vehicleId: string,
+    dto: UpdateVehicleRequestOptionalDocumentsDto,
+  ) {
+    await this.getVehicleOrThrow(vehicleId);
+
+    const vehicle = await this.prisma.vehicle.update({
+      where: { id: vehicleId },
+      data: { requiestOptionalDocuments: dto.requiestOptionalDocuments },
+    });
+
+    return formatResponse({
+      success: true,
+      data: vehicle,
+      message: 'Vehicle optional document request updated successfully',
+    });
+  }
+
+  private async maybeClearOptionalDocumentsRequest(vehicleId: string): Promise<void> {
+    const vehicle = await this.prisma.vehicle.findUnique({
+      where: { id: vehicleId },
+      select: { requiestOptionalDocuments: true },
+    });
+    if (!vehicle?.requiestOptionalDocuments) return;
+
+    const [acceptedPermissionLetter, acceptedSchedule] = await Promise.all([
+      this.prisma.permissionLetter.findFirst({
+        where: { vehicleId, status: DocumentStatus.ACCEPTED },
+        select: { id: true },
+      }),
+      this.prisma.vehicleSchedule.findFirst({
+        where: { vehicleId, status: DocumentStatus.ACCEPTED },
+        select: { id: true },
+      }),
+    ]);
+
+    if (acceptedPermissionLetter && acceptedSchedule) {
+      await this.prisma.vehicle.update({
+        where: { id: vehicleId },
+        data: { requiestOptionalDocuments: false },
+      });
+    }
   }
 
   // -----------------------
@@ -1459,6 +1508,222 @@ export class VehicleService {
   }
 
   // -----------------------
+  // Log book V5
+  // -----------------------
+  async listLogBookV5(driverId: string, vehicleId: string, requester: Requester) {
+    this.assertDriverAccess(driverId, requester);
+    await this.assertDriverExistsAndIsDriver(driverId);
+    await this.getVehicleForDriverOrThrow(driverId, vehicleId);
+
+    const rows = await this.prisma.logBookV5.findMany({
+      where: { vehicleId },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const data = await attachPendingToVehicleDocumentRows(
+      this.prisma,
+      VehicleDocumentKind.LOG_BOOK_V5,
+      rows,
+    );
+
+    return formatResponse({
+      success: true,
+      data,
+      message: 'Log book V5 documents retrieved successfully',
+    });
+  }
+
+  async getLogBookV5(
+    driverId: string,
+    vehicleId: string,
+    logBookV5Id: string,
+    requester: Requester,
+  ) {
+    this.assertDriverAccess(driverId, requester);
+    await this.assertDriverExistsAndIsDriver(driverId);
+    await this.getVehicleForDriverOrThrow(driverId, vehicleId);
+
+    const row = await this.prisma.logBookV5.findFirst({
+      where: { id: logBookV5Id, vehicleId },
+    });
+    if (!row) throw new NotFoundException('Log book V5 not found');
+
+    const [data] = await attachPendingToVehicleDocumentRows(
+      this.prisma,
+      VehicleDocumentKind.LOG_BOOK_V5,
+      [row],
+    );
+
+    return formatResponse({
+      success: true,
+      data,
+      message: 'Log book V5 retrieved successfully',
+    });
+  }
+
+  async createLogBookV5(
+    driverId: string,
+    vehicleId: string,
+    dto: CreateLogBookV5Dto,
+    requester: Requester,
+  ) {
+    this.assertDriverAccess(driverId, requester);
+    await this.assertDriverExistsAndIsDriver(driverId);
+    await this.getVehicleForDriverOrThrow(driverId, vehicleId);
+
+    const row = await this.prisma.logBookV5.create({
+      data: {
+        vehicleId,
+        document: dto.document as Prisma.InputJsonValue,
+      },
+    });
+
+    return formatResponse({
+      success: true,
+      data: row,
+      message: 'Log book V5 created successfully',
+    });
+  }
+
+  async updateLogBookV5(
+    driverId: string,
+    vehicleId: string,
+    logBookV5Id: string,
+    dto: UpdateLogBookV5Dto,
+    requester: Requester,
+  ) {
+    this.assertDriverAccess(driverId, requester);
+    await this.assertDriverExistsAndIsDriver(driverId);
+    await this.getVehicleForDriverOrThrow(driverId, vehicleId);
+
+    const existing = await this.prisma.logBookV5.findFirst({
+      where: { id: logBookV5Id, vehicleId },
+    });
+    if (!existing) throw new NotFoundException('Log book V5 not found');
+
+    const isAdmin = requester.role === 'ADMIN';
+    assertDriverMayMutateLiveVehicleDocument(isAdmin, existing.status);
+
+    const data: Prisma.LogBookV5UpdateInput = {};
+    if (dto.document !== undefined) data.document = dto.document as Prisma.InputJsonValue;
+    applyDriverResubmissionReviewReset(
+      isAdmin,
+      existing.status,
+      data,
+      dto.document !== undefined,
+    );
+
+    const row = await this.prisma.logBookV5.update({
+      where: { id: logBookV5Id },
+      data,
+    });
+
+    const [mapped] = await attachPendingToVehicleDocumentRows(
+      this.prisma,
+      VehicleDocumentKind.LOG_BOOK_V5,
+      [row],
+    );
+
+    return formatResponse({
+      success: true,
+      data: mapped,
+      message: 'Log book V5 updated successfully',
+    });
+  }
+
+  async deleteLogBookV5(
+    driverId: string,
+    vehicleId: string,
+    logBookV5Id: string,
+    requester: Requester,
+  ) {
+    this.assertDriverAccess(driverId, requester);
+    await this.assertDriverExistsAndIsDriver(driverId);
+    await this.getVehicleForDriverOrThrow(driverId, vehicleId);
+
+    const existing = await this.prisma.logBookV5.findFirst({
+      where: { id: logBookV5Id, vehicleId },
+    });
+    if (!existing) throw new NotFoundException('Log book V5 not found');
+
+    const isAdmin = requester.role === 'ADMIN';
+    assertDriverMayMutateLiveVehicleDocument(isAdmin, existing.status);
+
+    await this.prisma.logBookV5.delete({ where: { id: logBookV5Id } });
+
+    return formatResponse({
+      success: true,
+      data: null,
+      message: 'Log book V5 deleted successfully',
+    });
+  }
+
+  async adminListLogBookV5(vehicleId: string) {
+    await this.getVehicleOrThrow(vehicleId);
+    const rows = await this.prisma.logBookV5.findMany({
+      where: { vehicleId },
+      orderBy: { createdAt: 'desc' },
+    });
+    return formatResponse({
+      success: true,
+      data: rows,
+      message: 'Log book V5 documents retrieved successfully',
+    });
+  }
+
+  async adminGetLogBookV5(vehicleId: string, logBookV5Id: string) {
+    await this.getVehicleOrThrow(vehicleId);
+    const row = await this.prisma.logBookV5.findFirst({
+      where: { id: logBookV5Id, vehicleId },
+    });
+    if (!row) throw new NotFoundException('Log book V5 not found');
+    return formatResponse({
+      success: true,
+      data: row,
+      message: 'Log book V5 retrieved successfully',
+    });
+  }
+
+  async adminReviewLogBookV5(
+    vehicleId: string,
+    logBookV5Id: string,
+    dto: AdminReviewLogBookV5Dto,
+    requester: Requester,
+  ) {
+    if (requester.role !== 'ADMIN') {
+      throw new ForbiddenException('Admin access required');
+    }
+    const vehicle = await this.getVehicleOrThrow(vehicleId);
+
+    const existing = await this.prisma.logBookV5.findFirst({
+      where: { id: logBookV5Id, vehicleId },
+    });
+    if (!existing) throw new NotFoundException('Log book V5 not found');
+
+    const data: Prisma.LogBookV5UpdateInput = {};
+    if (dto.status !== undefined) data.status = dto.status as DocumentStatus;
+    if (dto.rejectedReason !== undefined) data.rejectedReason = dto.rejectedReason;
+
+    const row = await this.prisma.logBookV5.update({
+      where: { id: logBookV5Id },
+      data,
+    });
+
+    this.notifyVehicleDocumentReviewOutcomeIfNeeded(
+      vehicle.driverId,
+      VehicleDocumentKind.LOG_BOOK_V5,
+      existing.status,
+      row,
+    );
+
+    return formatResponse({
+      success: true,
+      data: row,
+      message: 'Log book V5 reviewed successfully',
+    });
+  }
+
+  // -----------------------
   // Permission letters
   // -----------------------
   async listPermissionLetters(driverId: string, vehicleId: string, requester: Requester) {
@@ -1666,6 +1931,10 @@ export class VehicleService {
       existing.status,
       row,
     );
+
+    if (row.status === DocumentStatus.ACCEPTED) {
+      void this.maybeClearOptionalDocumentsRequest(vehicleId);
+    }
 
     return formatResponse({
       success: true,
@@ -1883,6 +2152,10 @@ export class VehicleService {
       row,
     );
 
+    if (row.status === DocumentStatus.ACCEPTED) {
+      void this.maybeClearOptionalDocumentsRequest(vehicleId);
+    }
+
     return formatResponse({
       success: true,
       data: row,
@@ -1909,6 +2182,15 @@ export class VehicleService {
         make: true,
         model: true,
         isApproved: true,
+        requiestOptionalDocuments: true,
+        logBookV5: {
+          select: {
+            id: true,
+            status: true,
+            rejectedReason: true,
+            updatedAt: true,
+          },
+        },
         inspections: {
           select: {
             id: true,
@@ -1978,6 +2260,8 @@ export class VehicleService {
       make: v.make,
       model: v.model,
       isApproved: v.isApproved,
+      requiestOptionalDocuments: v.requiestOptionalDocuments,
+      logBookV5: v.logBookV5.map((d) => mapDoc(d)),
       inspections: v.inspections.map((i) =>
         mapDoc(i, i.inspectionType ?? null),
       ),

@@ -199,6 +199,41 @@ export class VehicleDocumentChangeRequestController {
     );
   }
 
+  @Post('driver/:driverId/vehicles/:vehicleId/log-book-v5/:logBookV5Id/change-requests')
+  @Roles('DRIVER')
+  submitLogBookV5(
+    @Param('driverId') driverId: string,
+    @Param('vehicleId') vehicleId: string,
+    @Param('logBookV5Id') logBookV5Id: string,
+    @Body() dto: SubmitDocumentOnlyChangeRequestDto,
+    @Req() req: { user: { userId: string; role?: string } },
+  ) {
+    return this.changeRequestService.submitLogBookV5(
+      driverId,
+      vehicleId,
+      logBookV5Id,
+      dto,
+      req.user,
+    );
+  }
+
+  @Get('driver/:driverId/vehicles/:vehicleId/log-book-v5/:logBookV5Id/change-requests')
+  @Roles('DRIVER', 'ADMIN')
+  listLogBookV5(
+    @Param('driverId') driverId: string,
+    @Param('vehicleId') vehicleId: string,
+    @Param('logBookV5Id') logBookV5Id: string,
+    @Req() req: { user: { userId: string; role?: string } },
+  ) {
+    return this.changeRequestService.listForDocument(
+      driverId,
+      vehicleId,
+      VehicleDocumentKind.LOG_BOOK_V5,
+      logBookV5Id,
+      req.user,
+    );
+  }
+
   @Get('driver/:driverId/vehicle-document-change-requests/:requestId')
   @Roles('DRIVER', 'ADMIN')
   findOne(

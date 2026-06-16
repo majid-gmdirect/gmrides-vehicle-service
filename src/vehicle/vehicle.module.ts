@@ -11,6 +11,8 @@ import { VehiclePcoDocsController } from './controllers/vehicle-pco-docs.control
 import { VehicleMetaController } from './controllers/vehicle-meta.controller';
 import { VehiclePermissionLettersController } from './controllers/vehicle-permission-letters.controller';
 import { AdminVehiclePermissionLettersController } from './controllers/admin-vehicle-permission-letters.controller';
+import { VehicleLogBookV5Controller } from './controllers/vehicle-log-book-v5.controller';
+import { AdminVehicleLogBookV5Controller } from './controllers/admin-vehicle-log-book-v5.controller';
 import { VehicleSchedulesController } from './controllers/vehicle-schedules.controller';
 import { AdminVehicleSchedulesController } from './controllers/admin-vehicle-schedules.controller';
 import { InternalDriverDocumentsController } from './controllers/internal-driver-documents.controller';
@@ -47,10 +49,12 @@ import { AdminVehicleChangeRequestController } from './vehicle-change-request/ad
     VehicleInsurancesController,
     VehiclePcoDocsController,
     VehiclePermissionLettersController,
+    VehicleLogBookV5Controller,
     VehicleSchedulesController,
     VehicleMetaController,
     AdminVehiclesController,
     AdminVehiclePermissionLettersController,
+    AdminVehicleLogBookV5Controller,
     AdminVehicleSchedulesController,
     InternalDriverDocumentsController,
     DriverDocumentStatusController,
