@@ -8,3 +8,13 @@ export function normalizeToReviewStatus(status: string): NormalizedReviewStatus 
   if (upper === 'REJECTED') return 'REJECTED';
   return 'PENDING';
 }
+
+/** Worst-case status when multiple records exist: REJECTED > PENDING > ACCEPTED. */
+export function pickAggregateReviewStatus(
+  statuses: NormalizedReviewStatus[],
+): NormalizedReviewStatus | null {
+  if (statuses.length === 0) return null;
+  if (statuses.includes('REJECTED')) return 'REJECTED';
+  if (statuses.includes('PENDING')) return 'PENDING';
+  return 'ACCEPTED';
+}

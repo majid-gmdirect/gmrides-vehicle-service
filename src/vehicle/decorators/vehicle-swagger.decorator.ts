@@ -98,7 +98,7 @@ export function AdminListVehiclesSwagger(): MethodDecorator {
     ApiOperation({
       summary: 'Admin: list all vehicles',
       description:
-        'Each vehicle includes images, log book V5, inspections, insurances, PCO documents, permission letters, vehicle schedules, requiestOptionalDocuments, and driver summary.',
+        'Each vehicle includes images, inspections, insurances, PCO documents, permission letters, vehicle schedules, and driver summary.',
     }),
     ApiQuery({ name: 'search', required: false, type: String }),
     ApiQuery({ name: 'page', required: false, type: Number }),
@@ -121,7 +121,11 @@ export function AdminListVehiclesSwagger(): MethodDecorator {
 export function AdminApproveVehicleSwagger(): MethodDecorator {
   return applyDecorators(
     ApiBearerAuth(),
-    ApiOperation({ summary: 'Admin: approve/unapprove a vehicle' }),
+    ApiOperation({
+      summary: 'Admin: approve/unapprove a vehicle',
+      description:
+        'Approval requires accepted log book V5, inspection, insurance, and PCO documents. When requiestOptionalDocuments is true, accepted permission letter and vehicle schedule are also required.',
+    }),
     ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
     ApiBody({ type: UpdateVehicleApprovedDto }),
     ApiOkResponse({ description: 'Vehicle approval updated successfully' }),
@@ -146,9 +150,9 @@ export function AdminRequestOptionalDocumentsSwagger(): MethodDecorator {
   return applyDecorators(
     ApiBearerAuth(),
     ApiOperation({
-      summary: 'Admin: request optional documents from driver',
+      summary: 'Admin: request driver to upload optional documents',
       description:
-        'Sets requiestOptionalDocuments on the vehicle. Cleared automatically when both permission letter and vehicle schedule are accepted.',
+        'Sets requiestOptionalDocuments on the vehicle. Clears automatically when both permission letter and vehicle schedule are accepted.',
     }),
     ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
     ApiBody({ type: UpdateVehicleRequestOptionalDocumentsDto }),

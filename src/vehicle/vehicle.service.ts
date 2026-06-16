@@ -44,6 +44,8 @@ import {
 import {
   tryNotifyDriverVehicleDocumentAccepted,
   tryNotifyDriverVehicleDocumentRejected,
+  tryNotifyDriverOptionalDocumentsRequested,
+  tryNotifyDriverVehicleApproved,
 } from '../common/vehicle-document-driver-notification.util';
 import { applyDriverResubmissionReviewReset } from '../common/reset-document-on-driver-resubmission.util';
 import { normalizeToReviewStatus } from '../common/document-review-status.util';
@@ -57,7 +59,10 @@ import { assertDriverMayMutateLiveVehicleDocument } from '../common/vehicle-docu
 import { attachPendingToVehicleDocumentRows } from '../common/pending-vehicle-document-change-request.util';
 import { assertDriverMayMutateLiveVehicle } from '../common/vehicle-mutation.policy';
 import { attachPendingToVehicleRows } from '../common/pending-vehicle-change-request.util';
-import { tryNotifyDriverVehicleApproved } from '../common/vehicle-document-driver-notification.util';
+import {
+  assessVehicleDocumentRequirements,
+  formatVehicleApprovalBlockedMessage,
+} from '../common/vehicle-document-requirements.util';
 
 type Requester = { userId: string; role?: string };
 
@@ -718,6 +723,15 @@ export class VehicleService {
   async adminApproveVehicle(vehicleId: string, dto: UpdateVehicleApprovedDto) {
     const existing = await this.getVehicleOrThrow(vehicleId);
 
+    if (dto.isApproved) {
+      const requirements = await this.getVehicleDocumentRequirements(vehicleId);
+      if (!requirements.readyForApproval) {
+        throw new BadRequestException(
+          formatVehicleApprovalBlockedMessage(requirements.missingRequired),
+        );
+      }
+    }
+
     const vehicle = await this.prisma.vehicle.update({
       where: { id: vehicleId },
       data: { isApproved: dto.isApproved },
@@ -757,18 +771,47 @@ export class VehicleService {
     vehicleId: string,
     dto: UpdateVehicleRequestOptionalDocumentsDto,
   ) {
-    await this.getVehicleOrThrow(vehicleId);
+    const existing = await this.getVehicleOrThrow(vehicleId);
 
     const vehicle = await this.prisma.vehicle.update({
       where: { id: vehicleId },
       data: { requiestOptionalDocuments: dto.requiestOptionalDocuments },
     });
 
+    if (
+      dto.requiestOptionalDocuments &&
+      !existing.requiestOptionalDocuments
+    ) {
+      void tryNotifyDriverOptionalDocumentsRequested(
+        this.notificationClient,
+        this.logger,
+        { driverUserId: vehicle.driverId },
+      );
+    }
+
     return formatResponse({
       success: true,
       data: vehicle,
       message: 'Vehicle optional document request updated successfully',
     });
+  }
+
+  private async getVehicleDocumentRequirements(vehicleId: string) {
+    const vehicle = await this.prisma.vehicle.findUnique({
+      where: { id: vehicleId },
+      select: {
+        requiestOptionalDocuments: true,
+        logBookV5: { select: { status: true } },
+        inspections: { select: { status: true } },
+        insurances: { select: { status: true } },
+        pcoDocs: { select: { status: true } },
+        permissionLetters: { select: { status: true } },
+        vehicleSchedules: { select: { status: true } },
+      },
+    });
+    if (!vehicle) throw new NotFoundException('Vehicle not found');
+
+    return assessVehicleDocumentRequirements(vehicle);
   }
 
   private async maybeClearOptionalDocumentsRequest(vehicleId: string): Promise<void> {
@@ -2254,13 +2297,17 @@ export class VehicleService {
       updatedAt: row.updatedAt.toISOString(),
     });
 
-    const mappedVehicles = vehicles.map((v) => ({
+    const mappedVehicles = vehicles.map((v) => {
+      const documentRequirements = assessVehicleDocumentRequirements(v);
+
+      return {
       vehicleId: v.id,
       plateNumber: v.plateNumber,
       make: v.make,
       model: v.model,
       isApproved: v.isApproved,
       requiestOptionalDocuments: v.requiestOptionalDocuments,
+      documentRequirements,
       logBookV5: v.logBookV5.map((d) => mapDoc(d)),
       inspections: v.inspections.map((i) =>
         mapDoc(i, i.inspectionType ?? null),
@@ -2269,7 +2316,8 @@ export class VehicleService {
       pcoDocs: v.pcoDocs.map((d) => mapDoc(d, d.badgeNumber ?? null)),
       permissionLetters: v.permissionLetters.map((p) => mapDoc(p)),
       vehicleSchedules: v.vehicleSchedules.map((s) => mapDoc(s)),
-    }));
+    };
+    });
 
     return formatResponse({
       success: true,

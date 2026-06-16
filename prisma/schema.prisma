@@ -65,15 +65,15 @@ model Vehicle {
   vehicle_schedule  Json?
 
   images                    VehicleImage[]
-  // mandatory documents
+  // Mandatory before admin can approve the vehicle (each group needs ≥1 ACCEPTED row).
   logBookV5                 LogBookV5[]
   inspections               VehicleInspection[]
   insurances                VehicleInsurance[]
   pcoDocs                   VehiclePcoDocument[]
-  // optional documents
+  // Optional until requiestOptionalDocuments is true; then both groups become mandatory.
   permissionLetters         PermissionLetter[]
   vehicleSchedules          VehicleSchedule[]
-  // request driver to upload optional documents (permission letter, vehicle schedule)
+  // Admin flag: when true, driver must upload and get permission letter + schedule accepted.
   requiestOptionalDocuments Boolean              @default(false)
 
   documentChangeRequests VehicleDocumentChangeRequest[]
