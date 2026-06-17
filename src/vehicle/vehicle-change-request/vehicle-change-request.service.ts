@@ -15,6 +15,7 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { formatResponse } from '../../common/format-response.util';
+import { lastValueFrom } from 'rxjs';
 import {
   buildVehicleChangePayload,
   mapVehicleChangePayloadForResponse,
@@ -90,6 +91,170 @@ export class VehicleChangeRequestService {
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
     };
+  }
+
+  private formatDriverDisplayName(driver: {
+    firstName?: string | null;
+    lastName?: string | null;
+    id?: string;
+  } | null): string {
+    if (!driver) return 'Driver';
+    const name = [driver.firstName, driver.lastName]
+      .filter((part) => typeof part === 'string' && part.trim().length > 0)
+      .join(' ')
+      .trim();
+    return name || driver.id || 'Driver';
+  }
+
+  private formatVehicleDisplayName(vehicle: {
+    make: string;
+    model: string;
+    plateNumber: string;
+  }): string {
+    return `${vehicle.make} ${vehicle.model} (${vehicle.plateNumber})`;
+  }
+
+  private toPublicDriverShape(input: any) {
+    if (!input) return null;
+    const user = input?.user;
+    const userId = input?.userId ?? user?.id;
+    const firstName = user?.first_name ?? input?.firstName ?? null;
+    const lastName = user?.last_name ?? input?.lastName ?? null;
+    const email = user?.email ?? input?.email ?? null;
+
+    if (!userId && !firstName && !lastName && !email) return null;
+
+    return {
+      id: userId,
+      firstName,
+      lastName,
+      email,
+      displayName: this.formatDriverDisplayName({
+        id: userId,
+        firstName,
+        lastName,
+      }),
+    };
+  }
+
+  private mapChangeRequestSummaryRow(
+    row: {
+      id: string;
+      driverId: string;
+      vehicleId: string;
+      status: VehicleDocumentChangeRequestStatus;
+      driver_note: string | null;
+      createdAt: Date;
+      updatedAt: Date;
+      vehicle: {
+        id: string;
+        make: string;
+        model: string;
+        plateNumber: string;
+      };
+    },
+    driverInput: any,
+  ) {
+    const driver = this.toPublicDriverShape(driverInput);
+    const vehicle = {
+      id: row.vehicle.id,
+      make: row.vehicle.make,
+      model: row.vehicle.model,
+      plateNumber: row.vehicle.plateNumber,
+      displayName: this.formatVehicleDisplayName(row.vehicle),
+    };
+
+    return {
+      id: row.id,
+      status: row.status,
+      targetTypeLabel: 'vehicle profile',
+      driverId: row.driverId,
+      driver,
+      vehicleId: row.vehicleId,
+      vehicle,
+      driver_note: row.driver_note,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+    };
+  }
+
+  private async fetchDriversByIds(driverIds: string[]) {
+    const baseUrl = process.env.BASE_API_URL;
+    if (!baseUrl || !process.env.INTERNAL_API_KEY) {
+      return new Map<string, any>();
+    }
+
+    const ids = Array.from(new Set(driverIds.filter(Boolean)));
+    if (ids.length === 0) return new Map<string, any>();
+
+    try {
+      const headers = {
+        Authorization: `Bearer ${process.env.INTERNAL_API_KEY}`,
+      };
+
+      const driverRes = await lastValueFrom(
+        this.httpService.post(
+          `${baseUrl}/api/users/driver/bulk/by-ids`,
+          { ids },
+          { headers },
+        ),
+      );
+      const drivers: any[] = driverRes?.data ?? [];
+
+      const map = new Map<string, any>();
+      for (const d of drivers) {
+        const userId = d?.userId ?? d?.user?.id;
+        if (userId) map.set(userId, d);
+      }
+
+      const missing = ids.filter((id) => !map.has(id));
+      if (missing.length) {
+        const userRes = await lastValueFrom(
+          this.httpService.post(
+            `${baseUrl}/api/users/main/batch`,
+            { ids: missing },
+            { headers },
+          ),
+        );
+        const users: any[] = userRes?.data ?? [];
+        for (const u of users) {
+          const userId = u?.id;
+          if (userId) map.set(userId, { user: u });
+        }
+      }
+
+      return map;
+    } catch {
+      return new Map<string, any>();
+    }
+  }
+
+  async internalListAllSummaries(query: {
+    status?: VehicleDocumentChangeRequestStatus;
+  }) {
+    const where: Prisma.VehicleChangeRequestWhereInput = {
+      ...(query.status !== undefined && { status: query.status }),
+    };
+
+    const rows = await this.prisma.vehicleChangeRequest.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        vehicle: {
+          select: {
+            id: true,
+            make: true,
+            model: true,
+            plateNumber: true,
+          },
+        },
+      },
+    });
+
+    const driverMap = await this.fetchDriversByIds(rows.map((row) => row.driverId));
+    return rows.map((row) =>
+      this.mapChangeRequestSummaryRow(row, driverMap.get(row.driverId)),
+    );
   }
 
   async submit(

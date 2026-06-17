@@ -16,6 +16,7 @@ import { AdminVehicleLogBookV5Controller } from './controllers/admin-vehicle-log
 import { VehicleSchedulesController } from './controllers/vehicle-schedules.controller';
 import { AdminVehicleSchedulesController } from './controllers/admin-vehicle-schedules.controller';
 import { InternalDriverDocumentsController } from './controllers/internal-driver-documents.controller';
+import { InternalChangeRequestsController } from './controllers/internal-change-requests.controller';
 import { DriverDocumentStatusController } from './controllers/driver-document-status.controller';
 import { CarApiService } from './car-api.service';
 import { VehicleDocumentChangeRequestService } from './document-change-request/vehicle-document-change-request.service';
@@ -57,6 +58,7 @@ import { AdminVehicleChangeRequestController } from './vehicle-change-request/ad
     AdminVehicleLogBookV5Controller,
     AdminVehicleSchedulesController,
     InternalDriverDocumentsController,
+    InternalChangeRequestsController,
     DriverDocumentStatusController,
     VehicleDocumentChangeRequestController,
     AdminVehicleDocumentChangeRequestController,

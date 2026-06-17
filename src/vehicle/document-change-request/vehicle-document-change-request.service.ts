@@ -866,30 +866,7 @@ export class VehicleDocumentChangeRequestService {
     } = query;
     const skip = (page - 1) * limit;
 
-    const where: Prisma.VehicleDocumentChangeRequestWhereInput = {
-      ...(status !== undefined && { status }),
-      ...(targetType !== undefined && { targetType }),
-    };
-
-    if (search?.trim()) {
-      const term = search.trim();
-      const driverIds = await this.fetchDriverIdsByName(term);
-      const vehicleOr: Prisma.VehicleWhereInput[] = [
-        {
-          plateNumber: {
-            contains: term,
-            mode: Prisma.QueryMode.insensitive,
-          },
-        },
-        { make: { contains: term, mode: Prisma.QueryMode.insensitive } },
-        { model: { contains: term, mode: Prisma.QueryMode.insensitive } },
-        { driverId: { contains: term, mode: Prisma.QueryMode.insensitive } },
-      ];
-      if (driverIds.length) {
-        vehicleOr.push({ driverId: { in: driverIds } });
-      }
-      where.vehicle = { OR: vehicleOr };
-    }
+    const where = await this.buildAdminListWhere({ search, status, targetType });
 
     const [rows, total] = await this.prisma.$transaction([
       this.prisma.vehicleDocumentChangeRequest.findMany({
@@ -922,6 +899,76 @@ export class VehicleDocumentChangeRequestService {
       paginationMeta: { total, page, limit },
       message: 'Vehicle document change requests retrieved successfully',
     });
+  }
+
+  async internalListAllSummaries(query: {
+    status?: VehicleDocumentChangeRequestStatus;
+    targetType?: VehicleDocumentKind;
+  }) {
+    const where = this.buildInternalListWhere(query);
+
+    const rows = await this.prisma.vehicleDocumentChangeRequest.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        vehicle: {
+          select: {
+            id: true,
+            make: true,
+            model: true,
+            plateNumber: true,
+          },
+        },
+      },
+    });
+
+    const driverMap = await this.fetchDriversByIds(rows.map((row) => row.driverId));
+    return rows.map((row) =>
+      this.mapChangeRequestSummaryRow(row, driverMap.get(row.driverId)),
+    );
+  }
+
+  private async buildAdminListWhere(params: {
+    search?: string;
+    status?: VehicleDocumentChangeRequestStatus;
+    targetType?: VehicleDocumentKind;
+  }): Promise<Prisma.VehicleDocumentChangeRequestWhereInput> {
+    const where: Prisma.VehicleDocumentChangeRequestWhereInput = {
+      ...(params.status !== undefined && { status: params.status }),
+      ...(params.targetType !== undefined && { targetType: params.targetType }),
+    };
+
+    if (params.search?.trim()) {
+      const term = params.search.trim();
+      const driverIds = await this.fetchDriverIdsByName(term);
+      const vehicleOr: Prisma.VehicleWhereInput[] = [
+        {
+          plateNumber: {
+            contains: term,
+            mode: Prisma.QueryMode.insensitive,
+          },
+        },
+        { make: { contains: term, mode: Prisma.QueryMode.insensitive } },
+        { model: { contains: term, mode: Prisma.QueryMode.insensitive } },
+        { driverId: { contains: term, mode: Prisma.QueryMode.insensitive } },
+      ];
+      if (driverIds.length) {
+        vehicleOr.push({ driverId: { in: driverIds } });
+      }
+      where.vehicle = { OR: vehicleOr };
+    }
+
+    return where;
+  }
+
+  private buildInternalListWhere(params: {
+    status?: VehicleDocumentChangeRequestStatus;
+    targetType?: VehicleDocumentKind;
+  }): Prisma.VehicleDocumentChangeRequestWhereInput {
+    return {
+      ...(params.status !== undefined && { status: params.status }),
+      ...(params.targetType !== undefined && { targetType: params.targetType }),
+    };
   }
 
   async adminFindOne(requestId: string, requester: Requester) {
