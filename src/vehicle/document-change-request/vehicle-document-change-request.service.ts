@@ -36,10 +36,13 @@ import {
   pcoDocumentChangePayloadDiffers,
   pcoDocumentPayloadToPrismaUpdate,
   VehicleDocumentChangePayload,
+  vehicleDocumentKindLabel,
 } from '../../common/vehicle-document-change-payload.util';
 import { notifyAdminsVehicleDocumentChangeRequestSubmitted } from '../../common/vehicle-document-change-request-notification.util';
 import { tryNotifyDriverVehicleDocumentChangeRequestReviewed } from '../../common/vehicle-document-driver-notification.util';
+import { lastValueFrom } from 'rxjs';
 import {
+  AdminListAllVehicleDocumentChangeRequestsDto,
   AdminQueryVehicleDocumentChangeRequestsDto,
   AdminReviewVehicleDocumentChangeRequestDto,
   SubmitDocumentOnlyChangeRequestDto,
@@ -115,6 +118,228 @@ export class VehicleDocumentChangeRequestService {
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
     };
+  }
+
+  private formatDriverDisplayName(driver: {
+    firstName?: string | null;
+    lastName?: string | null;
+    id?: string;
+  } | null): string {
+    if (!driver) return 'Driver';
+    const name = [driver.firstName, driver.lastName]
+      .filter((part) => typeof part === 'string' && part.trim().length > 0)
+      .join(' ')
+      .trim();
+    return name || driver.id || 'Driver';
+  }
+
+  private formatVehicleDisplayName(vehicle: {
+    make: string;
+    model: string;
+    plateNumber: string;
+  }): string {
+    return `${vehicle.make} ${vehicle.model} (${vehicle.plateNumber})`;
+  }
+
+  private toPublicDriverShape(input: any) {
+    if (!input) return null;
+    const user = input?.user;
+    const userId = input?.userId ?? user?.id;
+    const firstName = user?.first_name ?? input?.firstName ?? null;
+    const lastName = user?.last_name ?? input?.lastName ?? null;
+    const email = user?.email ?? input?.email ?? null;
+
+    if (!userId && !firstName && !lastName && !email) return null;
+
+    return {
+      id: userId,
+      firstName,
+      lastName,
+      email,
+      displayName: this.formatDriverDisplayName({
+        id: userId,
+        firstName,
+        lastName,
+      }),
+    };
+  }
+
+  private mapChangeRequestSummaryRow(
+    row: {
+      id: string;
+      driverId: string;
+      vehicleId: string;
+      targetType: VehicleDocumentKind;
+      targetDocumentId: string;
+      status: VehicleDocumentChangeRequestStatus;
+      driver_note: string | null;
+      createdAt: Date;
+      updatedAt: Date;
+      vehicle: {
+        id: string;
+        make: string;
+        model: string;
+        plateNumber: string;
+      };
+    },
+    driverInput: any,
+  ) {
+    const driver = this.toPublicDriverShape(driverInput);
+    const targetTypeLabel = vehicleDocumentKindLabel(row.targetType);
+    const vehicle = {
+      id: row.vehicle.id,
+      make: row.vehicle.make,
+      model: row.vehicle.model,
+      plateNumber: row.vehicle.plateNumber,
+      displayName: this.formatVehicleDisplayName(row.vehicle),
+    };
+
+    return {
+      id: row.id,
+      status: row.status,
+      targetType: row.targetType,
+      targetTypeLabel,
+      targetDocumentId: row.targetDocumentId,
+      driverId: row.driverId,
+      driver,
+      vehicleId: row.vehicleId,
+      vehicle,
+      driver_note: row.driver_note,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+    };
+  }
+
+  private async fetchDriverIdsByName(search: string): Promise<string[]> {
+    const baseUrl = process.env.BASE_API_URL;
+    if (!baseUrl || !process.env.INTERNAL_API_KEY) return [];
+
+    const q = search.trim();
+    if (!q) return [];
+
+    try {
+      const headers = {
+        Authorization: `Bearer ${process.env.INTERNAL_API_KEY}`,
+      };
+
+      const fetchIds = async (term: string): Promise<string[]> => {
+        try {
+          const res = await lastValueFrom(
+            this.httpService.get(`${baseUrl}/api/users/main/internal/driver-ids`, {
+              headers,
+              params: { search: term },
+            }),
+          );
+          const ids: unknown[] = res?.data?.ids ?? [];
+          return ids.filter((id): id is string => typeof id === 'string' && id.length > 0);
+        } catch (e: any) {
+          const status = e?.response?.status;
+          if (status === 404) {
+            try {
+              const res = await lastValueFrom(
+                this.httpService.get(`${baseUrl}/api/users/main`, {
+                  headers,
+                  params: {
+                    search: term,
+                    role: 'DRIVER',
+                    page: 1,
+                    limit: 200,
+                  },
+                }),
+              );
+              const users: any[] = res?.data?.data ?? [];
+              return users
+                .map((u) => u?.id)
+                .filter((id: any) => typeof id === 'string' && id.length > 0);
+            } catch {
+              // fall through
+            }
+          }
+          if (status === 404) {
+            const res = await lastValueFrom(
+              this.httpService.get(`${baseUrl}/api/users/main/internal/drivers`, {
+                headers,
+                params: {
+                  search: term,
+                  page: 1,
+                  limit: 100,
+                },
+              }),
+            );
+            const drivers: any[] = res?.data?.data ?? [];
+            return drivers
+              .map((d) => d?.userId ?? d?.user?.id)
+              .filter((id: any) => typeof id === 'string' && id.length > 0);
+          }
+          throw e;
+        }
+      };
+
+      const terms = q.split(/\s+/).filter(Boolean);
+      const fullMatchIds = await fetchIds(q);
+      if (terms.length <= 1) {
+        return Array.from(new Set(fullMatchIds));
+      }
+
+      const perTerm = await Promise.all(terms.map((t) => fetchIds(t)));
+      const sets = perTerm.map((arr) => new Set(arr));
+      const intersection = perTerm[0].filter((id) => sets.every((s) => s.has(id)));
+      const union = Array.from(new Set([...fullMatchIds, ...perTerm.flat()]));
+      return intersection.length ? Array.from(new Set(intersection)) : union;
+    } catch {
+      return [];
+    }
+  }
+
+  private async fetchDriversByIds(driverIds: string[]) {
+    const baseUrl = process.env.BASE_API_URL;
+    if (!baseUrl || !process.env.INTERNAL_API_KEY) {
+      return new Map<string, any>();
+    }
+
+    const ids = Array.from(new Set(driverIds.filter(Boolean)));
+    if (ids.length === 0) return new Map<string, any>();
+
+    try {
+      const headers = {
+        Authorization: `Bearer ${process.env.INTERNAL_API_KEY}`,
+      };
+
+      const driverRes = await lastValueFrom(
+        this.httpService.post(
+          `${baseUrl}/api/users/driver/bulk/by-ids`,
+          { ids },
+          { headers },
+        ),
+      );
+      const drivers: any[] = driverRes?.data ?? [];
+
+      const map = new Map<string, any>();
+      for (const d of drivers) {
+        const userId = d?.userId ?? d?.user?.id;
+        if (userId) map.set(userId, d);
+      }
+
+      const missing = ids.filter((id) => !map.has(id));
+      if (missing.length) {
+        const userRes = await lastValueFrom(
+          this.httpService.post(
+            `${baseUrl}/api/users/main/batch`,
+            { ids: missing },
+            { headers },
+          ),
+        );
+        const users: any[] = userRes?.data ?? [];
+        for (const u of users) {
+          const userId = u?.id;
+          if (userId) map.set(userId, { user: u });
+        }
+      }
+
+      return map;
+    } catch {
+      return new Map<string, any>();
+    }
   }
 
   private async assertAcceptedTarget(
@@ -619,6 +844,82 @@ export class VehicleDocumentChangeRequestService {
     return formatResponse({
       success: true,
       data: rows.map((row) => this.mapChangeRequestRow(row)),
+      message: 'Vehicle document change requests retrieved successfully',
+    });
+  }
+
+  async adminListAll(
+    query: AdminListAllVehicleDocumentChangeRequestsDto,
+    requester: Requester,
+  ) {
+    if (requester.role !== 'ADMIN') {
+      throw new ForbiddenException('Admin access required');
+    }
+
+    const {
+      search,
+      page = 1,
+      limit = 10,
+      orderBy = 'desc',
+      status,
+      targetType,
+    } = query;
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.VehicleDocumentChangeRequestWhereInput = {
+      ...(status !== undefined && { status }),
+      ...(targetType !== undefined && { targetType }),
+    };
+
+    if (search?.trim()) {
+      const term = search.trim();
+      const driverIds = await this.fetchDriverIdsByName(term);
+      const vehicleOr: Prisma.VehicleWhereInput[] = [
+        {
+          plateNumber: {
+            contains: term,
+            mode: Prisma.QueryMode.insensitive,
+          },
+        },
+        { make: { contains: term, mode: Prisma.QueryMode.insensitive } },
+        { model: { contains: term, mode: Prisma.QueryMode.insensitive } },
+        { driverId: { contains: term, mode: Prisma.QueryMode.insensitive } },
+      ];
+      if (driverIds.length) {
+        vehicleOr.push({ driverId: { in: driverIds } });
+      }
+      where.vehicle = { OR: vehicleOr };
+    }
+
+    const [rows, total] = await this.prisma.$transaction([
+      this.prisma.vehicleDocumentChangeRequest.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: orderBy },
+        include: {
+          vehicle: {
+            select: {
+              id: true,
+              make: true,
+              model: true,
+              plateNumber: true,
+            },
+          },
+        },
+      }),
+      this.prisma.vehicleDocumentChangeRequest.count({ where }),
+    ]);
+
+    const driverMap = await this.fetchDriversByIds(rows.map((row) => row.driverId));
+    const data = rows.map((row) =>
+      this.mapChangeRequestSummaryRow(row, driverMap.get(row.driverId)),
+    );
+
+    return formatResponse({
+      success: true,
+      data,
+      paginationMeta: { total, page, limit },
       message: 'Vehicle document change requests retrieved successfully',
     });
   }
