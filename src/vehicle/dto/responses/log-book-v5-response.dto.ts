@@ -41,7 +41,7 @@ export class LogBookV5ResponseDto {
 
   @ApiProperty({
     description: 'Uploaded log book V5 file reference',
-    type: PublicFileRefResponseDto,
+    type: () => PublicFileRefResponseDto,
     example: {
       id: 'f8c3c8c4-6b2a-4c1e-9d0a-1b2c3d4e5f60',
       url: 'https://storage.example.com/bucket/log-book-v5.pdf',
@@ -78,7 +78,7 @@ export class LogBookV5ResponseDto {
   @ApiPropertyOptional({
     description:
       'Present on driver-facing list/get/update responses when a document change request is awaiting admin review. Omitted on admin routes and on create.',
-    type: PendingVehicleDocumentChangeRequestDto,
+    type: () => PendingVehicleDocumentChangeRequestDto,
     nullable: true,
   })
   pendingChangeRequest?: PendingVehicleDocumentChangeRequestDto | null;
@@ -88,7 +88,7 @@ export class LogBookV5SuccessResponseDto {
   @ApiProperty({ example: true })
   success: boolean;
 
-  @ApiProperty({ type: LogBookV5ResponseDto })
+  @ApiProperty({ type: () => LogBookV5ResponseDto })
   data: LogBookV5ResponseDto;
 
   @ApiProperty({ example: 'Log book V5 retrieved successfully' })
@@ -99,24 +99,9 @@ export class LogBookV5ListSuccessResponseDto {
   @ApiProperty({ example: true })
   success: boolean;
 
-  @ApiProperty({ type: LogBookV5ResponseDto, isArray: true })
+  @ApiProperty({ type: () => LogBookV5ResponseDto, isArray: true })
   data: LogBookV5ResponseDto[];
 
   @ApiProperty({ example: 'Log book V5 documents retrieved successfully' })
-  message: string;
-}
-
-export class LogBookV5DeleteSuccessResponseDto {
-  @ApiProperty({ example: true })
-  success: boolean;
-
-  @ApiProperty({
-    description: 'Always null on successful delete',
-    nullable: true,
-    example: null,
-  })
-  data: null;
-
-  @ApiProperty({ example: 'Log book V5 deleted successfully' })
   message: string;
 }

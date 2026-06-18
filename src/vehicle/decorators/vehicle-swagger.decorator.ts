@@ -35,7 +35,6 @@ import {
   AdminReviewLogBookV5Dto,
   LogBookV5SuccessResponseDto,
   LogBookV5ListSuccessResponseDto,
-  LogBookV5DeleteSuccessResponseDto,
 } from '../dto';
 
 export function CreateVehicleSwagger(): MethodDecorator {
@@ -680,7 +679,18 @@ export function DeleteLogBookV5Swagger(): MethodDecorator {
     ApiParam({ name: 'logBookV5Id', type: String, description: 'Log book V5 ID' }),
     ApiOkResponse({
       description: 'Log book V5 deleted successfully',
-      type: LogBookV5DeleteSuccessResponseDto,
+      schema: {
+        type: 'object',
+        required: ['success', 'data', 'message'],
+        properties: {
+          success: { type: 'boolean', example: true },
+          data: { nullable: true, example: null },
+          message: {
+            type: 'string',
+            example: 'Log book V5 deleted successfully',
+          },
+        },
+      },
     }),
     ApiNotFoundResponse({ description: 'Log book V5 not found' }),
     ApiForbiddenResponse({ description: 'Access denied' }),

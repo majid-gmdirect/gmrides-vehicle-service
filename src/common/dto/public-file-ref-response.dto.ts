@@ -30,7 +30,7 @@ export class PublicFileRefResponseDto {
 
   @ApiPropertyOptional({
     description: 'Per-file review metadata (present when admin flags a specific upload)',
-    type: FileReviewDto,
+    type: () => FileReviewDto,
   })
   review?: FileReviewDto;
 }
