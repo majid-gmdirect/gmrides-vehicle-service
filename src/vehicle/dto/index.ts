@@ -21,5 +21,7 @@ export * from './admin-review-vehicle-schedule.dto';
 export * from './create-log-book-v5.dto';
 export * from './update-log-book-v5.dto';
 export * from './admin-review-log-book-v5.dto';
+export * from './log-book-v5-document.dto';
+export * from './responses/log-book-v5-response.dto';
 export * from './update-vehicle-request-optional-documents.dto';
 

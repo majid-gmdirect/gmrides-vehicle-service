@@ -1580,7 +1580,7 @@ export class VehicleService {
     const row = await this.prisma.logBookV5.create({
       data: {
         vehicleId,
-        document: dto.document as Prisma.InputJsonValue,
+        document: dto.document as unknown as Prisma.InputJsonValue,
       },
     });
 
@@ -1611,7 +1611,9 @@ export class VehicleService {
     assertDriverMayMutateLiveVehicleDocument(isAdmin, existing.status);
 
     const data: Prisma.LogBookV5UpdateInput = {};
-    if (dto.document !== undefined) data.document = dto.document as Prisma.InputJsonValue;
+    if (dto.document !== undefined) {
+      data.document = dto.document as unknown as Prisma.InputJsonValue;
+    }
     applyDriverResubmissionReviewReset(
       isAdmin,
       existing.status,
