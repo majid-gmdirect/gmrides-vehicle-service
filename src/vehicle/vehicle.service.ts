@@ -2275,8 +2275,12 @@ export class VehicleService {
       ),
       insurances: v.insurances.map((i) => mapDoc(i, i.provider ?? null)),
       pcoDocs: v.pcoDocs.map((d) => mapDoc(d, d.badgeNumber ?? null)),
-      permissionLetters: v.permissionLetters.map((p) => mapDoc(p)),
-      vehicleSchedules: v.vehicleSchedules.map((s) => mapDoc(s)),
+      permissionLetters: v.requiestOptionalDocuments
+        ? v.permissionLetters.map((p) => mapDoc(p))
+        : [],
+      vehicleSchedules: v.requiestOptionalDocuments
+        ? v.vehicleSchedules.map((s) => mapDoc(s))
+        : [],
     }));
 
     return formatResponse({
