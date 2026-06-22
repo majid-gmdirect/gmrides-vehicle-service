@@ -73,7 +73,11 @@ export function GetVehicleSwagger(): MethodDecorator {
 export function UpdateVehicleSwagger(): MethodDecorator {
   return applyDecorators(
     ApiBearerAuth(),
-    ApiOperation({ summary: 'Update a vehicle (scoped to driver)' }),
+    ApiOperation({
+      summary: 'Update a vehicle (scoped to driver)',
+      description:
+        'Drivers may update unapproved vehicles directly. Once isApproved is true, drivers must use POST /driver/:driverId/vehicles/:vehicleId/change-requests instead. Admins may always PATCH directly.',
+    }),
     ApiParam({ name: 'driverId', type: String, description: 'Driver user ID' }),
     ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
     ApiBody({ type: UpdateVehicleDto }),

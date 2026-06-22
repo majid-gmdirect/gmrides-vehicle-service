@@ -27,6 +27,7 @@ import {
 import { notifyAdminsVehicleChangeRequestSubmitted } from '../../common/vehicle-change-request-notification.util';
 import { tryNotifyDriverVehicleChangeRequestReviewed } from '../../common/vehicle-document-driver-notification.util';
 import {
+  AdminListAllVehicleChangeRequestsDto,
   AdminQueryVehicleChangeRequestsDto,
   AdminReviewVehicleChangeRequestDto,
   SubmitVehicleChangeRequestDto,
@@ -227,6 +228,153 @@ export class VehicleChangeRequestService {
     } catch {
       return new Map<string, any>();
     }
+  }
+
+  private async fetchDriverIdsByName(search: string): Promise<string[]> {
+    const baseUrl = process.env.BASE_API_URL;
+    if (!baseUrl || !process.env.INTERNAL_API_KEY) return [];
+
+    const q = search.trim();
+    if (!q) return [];
+
+    try {
+      const headers = {
+        Authorization: `Bearer ${process.env.INTERNAL_API_KEY}`,
+      };
+
+      const fetchIds = async (term: string): Promise<string[]> => {
+        try {
+          const res = await lastValueFrom(
+            this.httpService.get(`${baseUrl}/api/users/main/internal/driver-ids`, {
+              headers,
+              params: { search: term },
+            }),
+          );
+          const ids: unknown[] = res?.data?.ids ?? [];
+          return ids.filter((id): id is string => typeof id === 'string' && id.length > 0);
+        } catch (e: any) {
+          const status = e?.response?.status;
+          if (status === 404) {
+            try {
+              const res = await lastValueFrom(
+                this.httpService.get(`${baseUrl}/api/users/main`, {
+                  headers,
+                  params: {
+                    search: term,
+                    role: 'DRIVER',
+                    page: 1,
+                    limit: 200,
+                  },
+                }),
+              );
+              const users: any[] = res?.data?.data ?? res?.data ?? [];
+              return users
+                .map((u) => u?.id)
+                .filter((id): id is string => typeof id === 'string' && id.length > 0);
+            } catch {
+              return [];
+            }
+          }
+          return [];
+        }
+      };
+
+      const direct = await fetchIds(q);
+      if (direct.length) return direct;
+
+      const parts = q.split(/\s+/).filter(Boolean);
+      if (parts.length > 1) {
+        const byPart = await Promise.all(parts.map((part) => fetchIds(part)));
+        return Array.from(new Set(byPart.flat()));
+      }
+
+      return [];
+    } catch {
+      return [];
+    }
+  }
+
+  private async buildAdminListWhere(params: {
+    search?: string;
+    status?: VehicleDocumentChangeRequestStatus;
+  }): Promise<Prisma.VehicleChangeRequestWhereInput> {
+    const where: Prisma.VehicleChangeRequestWhereInput = {
+      ...(params.status !== undefined && { status: params.status }),
+    };
+
+    if (params.search?.trim()) {
+      const term = params.search.trim();
+      const driverIds = await this.fetchDriverIdsByName(term);
+      const vehicleOr: Prisma.VehicleWhereInput[] = [
+        {
+          plateNumber: {
+            contains: term,
+            mode: Prisma.QueryMode.insensitive,
+          },
+        },
+        { make: { contains: term, mode: Prisma.QueryMode.insensitive } },
+        { model: { contains: term, mode: Prisma.QueryMode.insensitive } },
+        { driverId: { contains: term, mode: Prisma.QueryMode.insensitive } },
+      ];
+      if (driverIds.length) {
+        vehicleOr.push({ driverId: { in: driverIds } });
+      }
+      where.vehicle = { OR: vehicleOr };
+    }
+
+    return where;
+  }
+
+  async adminListAll(
+    query: AdminListAllVehicleChangeRequestsDto,
+    requester: Requester,
+  ) {
+    if (requester.role !== 'ADMIN') {
+      throw new ForbiddenException('Admin access required');
+    }
+
+    const {
+      search,
+      page = 1,
+      limit = 10,
+      orderBy = 'desc',
+      status,
+    } = query;
+    const skip = (page - 1) * limit;
+
+    const where = await this.buildAdminListWhere({ search, status });
+
+    const [rows, total] = await this.prisma.$transaction([
+      this.prisma.vehicleChangeRequest.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: orderBy },
+        include: {
+          vehicle: {
+            select: {
+              id: true,
+              make: true,
+              model: true,
+              plateNumber: true,
+            },
+          },
+        },
+      }),
+      this.prisma.vehicleChangeRequest.count({ where }),
+    ]);
+
+    const driverMap = await this.fetchDriversByIds(rows.map((row) => row.driverId));
+    const data = rows.map((row) =>
+      this.mapChangeRequestSummaryRow(row, driverMap.get(row.driverId)),
+    );
+
+    return formatResponse({
+      success: true,
+      data,
+      paginationMeta: { total, page, limit },
+      message: 'Vehicle change requests retrieved successfully',
+    });
   }
 
   async internalListAllSummaries(query: {
