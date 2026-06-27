@@ -22,6 +22,17 @@ export type InspectionChangePayload = {
   document: Record<string, unknown> | null;
 };
 
+/** Fields the driver explicitly changed when submitting an inspection change request. */
+export type InspectionChangeField =
+  | 'inspectionType'
+  | 'inspectionDate'
+  | 'expiryDate'
+  | 'document';
+
+export type StoredInspectionChangePayload = InspectionChangePayload & {
+  changedFields: InspectionChangeField[];
+};
+
 export type InsuranceChangePayload = {
   provider: string | null;
   policyNumber: string | null;
@@ -109,6 +120,90 @@ export function inspectionChangePayloadDiffers(
   );
 }
 
+export function computeInspectionChangedFields(
+  existing: VehicleInspection,
+  dto: Partial<{
+    inspectionType?: string;
+    inspectionDate?: string;
+    expiryDate?: string;
+    document?: Record<string, unknown>;
+  }>,
+): InspectionChangeField[] {
+  const current = buildInspectionChangePayload(existing, {});
+  const changed: InspectionChangeField[] = [];
+
+  if (dto.inspectionType !== undefined) {
+    const next = dto.inspectionType ?? null;
+    if (next !== current.inspectionType) changed.push('inspectionType');
+  }
+  if (dto.inspectionDate !== undefined) {
+    const next = dto.inspectionDate ?? null;
+    if (next !== current.inspectionDate) changed.push('inspectionDate');
+  }
+  if (dto.expiryDate !== undefined) {
+    const next = dto.expiryDate ?? null;
+    if (next !== current.expiryDate) changed.push('expiryDate');
+  }
+  if (dto.document !== undefined) {
+    const proposed = buildInspectionChangePayload(existing, {
+      document: dto.document,
+    });
+    if (stableJson(current.document) !== stableJson(proposed.document)) {
+      changed.push('document');
+    }
+  }
+
+  return changed;
+}
+
+export function buildStoredInspectionChangePayload(
+  existing: VehicleInspection,
+  dto: Partial<{
+    inspectionType?: string;
+    inspectionDate?: string;
+    expiryDate?: string;
+    document?: Record<string, unknown>;
+  }>,
+): StoredInspectionChangePayload {
+  return {
+    ...buildInspectionChangePayload(existing, dto),
+    changedFields: computeInspectionChangedFields(existing, dto),
+  };
+}
+
+export function parseInspectionStoredPayload(raw: unknown): {
+  data: InspectionChangePayload;
+  changedFields: InspectionChangeField[] | null;
+} {
+  if (!raw || typeof raw !== 'object') {
+    return {
+      data: raw as InspectionChangePayload,
+      changedFields: null,
+    };
+  }
+
+  const o = raw as Record<string, unknown>;
+  const changedFields = Array.isArray(o.changedFields)
+    ? o.changedFields.filter(
+        (field): field is InspectionChangeField =>
+          field === 'inspectionType' ||
+          field === 'inspectionDate' ||
+          field === 'expiryDate' ||
+          field === 'document',
+      )
+    : null;
+
+  return {
+    data: {
+      inspectionType: (o.inspectionType as string | null | undefined) ?? null,
+      inspectionDate: (o.inspectionDate as string | null | undefined) ?? null,
+      expiryDate: (o.expiryDate as string | null | undefined) ?? null,
+      document: (o.document as Record<string, unknown> | null | undefined) ?? null,
+    },
+    changedFields,
+  };
+}
+
 export function inspectionPayloadToPrismaUpdate(
   payload: InspectionChangePayload,
 ): Prisma.VehicleInspectionUpdateInput {
@@ -122,6 +217,24 @@ export function inspectionPayloadToPrismaUpdate(
       : null;
   data.expiryDate =
     payload.expiryDate != null ? toPrismaDateTime(payload.expiryDate) : null;
+  return data;
+}
+
+/** Applies only driver-submitted fields (partial apply on accept). */
+export function inspectionPayloadToPartialPrismaUpdate(
+  payload: InspectionChangePayload,
+  changedFields: InspectionChangeField[],
+): Prisma.VehicleInspectionUpdateInput {
+  const full = inspectionPayloadToPrismaUpdate(payload);
+  const data: Prisma.VehicleInspectionUpdateInput = {};
+
+  for (const field of changedFields) {
+    if (field === 'inspectionType') data.inspectionType = full.inspectionType;
+    if (field === 'inspectionDate') data.inspectionDate = full.inspectionDate;
+    if (field === 'expiryDate') data.expiryDate = full.expiryDate;
+    if (field === 'document') data.document = full.document;
+  }
+
   return data;
 }
 
@@ -270,13 +383,18 @@ export function mapChangePayloadForResponse(
 ): Record<string, unknown> {
   switch (targetType) {
     case VehicleDocumentKind.INSPECTION: {
-      const p = payload as InspectionChangePayload;
-      return {
+      const parsed = parseInspectionStoredPayload(payload);
+      const p = parsed.data;
+      const response: Record<string, unknown> = {
         inspectionType: p.inspectionType,
         inspectionDate: p.inspectionDate,
         expiryDate: p.expiryDate,
         document: pickPublicMediaRef(p.document),
       };
+      if (parsed.changedFields?.length) {
+        response.changedFields = parsed.changedFields;
+      }
+      return response;
     }
     case VehicleDocumentKind.INSURANCE: {
       const p = payload as InsuranceChangePayload;

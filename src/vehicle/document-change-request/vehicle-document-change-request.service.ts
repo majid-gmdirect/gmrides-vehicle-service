@@ -19,15 +19,15 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { formatResponse } from '../../common/format-response.util';
 import {
   buildDocumentOnlyChangePayload,
-  buildInspectionChangePayload,
+  buildStoredInspectionChangePayload,
   buildInsuranceChangePayload,
   buildPcoDocumentChangePayload,
   DocumentOnlyChangePayload,
   documentOnlyChangePayloadDiffers,
   documentOnlyPayloadToPrismaUpdate,
-  InspectionChangePayload,
-  inspectionChangePayloadDiffers,
+  inspectionPayloadToPartialPrismaUpdate,
   inspectionPayloadToPrismaUpdate,
+  parseInspectionStoredPayload,
   InsuranceChangePayload,
   insuranceChangePayloadDiffers,
   insurancePayloadToPrismaUpdate,
@@ -493,8 +493,8 @@ export class VehicleDocumentChangeRequestService {
     );
 
     const { driver_note, ...fields } = dto;
-    const payload = buildInspectionChangePayload(existing, fields);
-    if (!inspectionChangePayloadDiffers(payload, existing)) {
+    const payload = buildStoredInspectionChangePayload(existing, fields);
+    if (payload.changedFields.length === 0) {
       throw new BadRequestException('No changes detected in the change request');
     }
 
@@ -1000,12 +1000,20 @@ export class VehicleDocumentChangeRequestService {
     const payload = changeRequest.payload as VehicleDocumentChangePayload;
 
     switch (changeRequest.targetType) {
-      case VehicleDocumentKind.INSPECTION:
+      case VehicleDocumentKind.INSPECTION: {
+        const { data, changedFields } = parseInspectionStoredPayload(
+          changeRequest.payload,
+        );
+        const update =
+          changedFields && changedFields.length > 0
+            ? inspectionPayloadToPartialPrismaUpdate(data, changedFields)
+            : inspectionPayloadToPrismaUpdate(data);
         await tx.vehicleInspection.update({
           where: { id: changeRequest.targetDocumentId },
-          data: inspectionPayloadToPrismaUpdate(payload as InspectionChangePayload),
+          data: update,
         });
         return;
+      }
       case VehicleDocumentKind.INSURANCE:
         await tx.vehicleInsurance.update({
           where: { id: changeRequest.targetDocumentId },

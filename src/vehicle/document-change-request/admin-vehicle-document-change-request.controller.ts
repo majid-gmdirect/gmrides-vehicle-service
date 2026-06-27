@@ -22,7 +22,7 @@ export class AdminVehicleDocumentChangeRequestController {
   @ApiOperation({
     summary: 'Admin: list all vehicle document change requests (paginated summary)',
     description:
-      'Returns lightweight rows for admin inbox. Use GET /admin/vehicle-document-change-requests/:requestId for full payload and review details.',
+      'Vehicle document change requests only. For a unified inbox across driver profile, licences, vehicle profile, and vehicle documents use GET /api/users/admin/change-requests in user-service.',
   })
   @ApiQuery({ name: 'search', required: false, type: String })
   @ApiQuery({ name: 'status', required: false, enum: VehicleDocumentChangeRequestStatus })

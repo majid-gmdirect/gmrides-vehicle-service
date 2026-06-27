@@ -2,14 +2,12 @@ import { Body, Controller, Delete, Get, Param, Patch, Query, Req } from '@nestjs
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../../auth/roles.decorator';
 import {
-  AdminListAllVehicleChangeRequestsDto,
   AdminQueryVehicleChangeRequestsDto,
   AdminReviewVehicleChangeRequestDto,
 } from './dto';
 import {
   AdminDeleteVehicleChangeRequestSwagger,
   AdminGetVehicleChangeRequestSwagger,
-  AdminListAllVehicleChangeRequestsSwagger,
   AdminListDriverVehicleChangeRequestsSwagger,
   AdminListVehicleProfileChangeRequestsSwagger,
   AdminReviewVehicleChangeRequestSwagger,
@@ -23,16 +21,6 @@ export class AdminVehicleChangeRequestController {
   constructor(
     private readonly changeRequestService: VehicleChangeRequestService,
   ) {}
-
-  @Get('vehicle-profile-change-requests')
-  @Roles('ADMIN')
-  @AdminListAllVehicleChangeRequestsSwagger()
-  listAll(
-    @Query() query: AdminListAllVehicleChangeRequestsDto,
-    @Req() req: { user: { userId: string; role?: string } },
-  ) {
-    return this.changeRequestService.adminListAll(query, req.user);
-  }
 
   @Get('drivers/:driverId/vehicle-change-requests')
   @Roles('ADMIN')

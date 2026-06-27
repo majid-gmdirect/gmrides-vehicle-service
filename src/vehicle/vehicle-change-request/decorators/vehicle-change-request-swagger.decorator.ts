@@ -9,18 +9,14 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiParam,
-  ApiQuery,
 } from '@nestjs/swagger';
-import { VehicleDocumentChangeRequestStatus } from '@prisma/client';
 import {
-  AdminListAllVehicleChangeRequestsDto,
   AdminReviewVehicleChangeRequestDto,
   SubmitVehicleChangeRequestDto,
 } from '../dto';
 import {
   VehicleChangeRequestListSuccessResponseDto,
   VehicleChangeRequestSuccessResponseDto,
-  VehicleChangeRequestSummaryListSuccessResponseDto,
 } from '../dto/responses/vehicle-change-request-response.dto';
 
 export function SubmitVehicleChangeRequestSwagger(): MethodDecorator {
@@ -87,27 +83,6 @@ export function CancelVehicleChangeRequestSwagger(): MethodDecorator {
     ApiConflictResponse({ description: 'Change request is not pending' }),
     ApiNotFoundResponse({ description: 'Change request not found' }),
     ApiForbiddenResponse({ description: 'Access denied' }),
-  );
-}
-
-export function AdminListAllVehicleChangeRequestsSwagger(): MethodDecorator {
-  return applyDecorators(
-    ApiBearerAuth(),
-    ApiOperation({
-      summary: 'Admin: list all vehicle profile change requests (paginated summary)',
-      description:
-        'Lightweight inbox rows without full payload. Use GET /admin/vehicle-profile-change-requests/:requestId for full details.',
-    }),
-    ApiQuery({ name: 'search', required: false, type: String }),
-    ApiQuery({ name: 'status', required: false, enum: VehicleDocumentChangeRequestStatus }),
-    ApiQuery({ name: 'page', required: false, type: Number }),
-    ApiQuery({ name: 'limit', required: false, type: Number }),
-    ApiQuery({ name: 'orderBy', required: false, enum: ['asc', 'desc'] }),
-    ApiOkResponse({
-      description: 'Paginated vehicle profile change request summaries',
-      type: VehicleChangeRequestSummaryListSuccessResponseDto,
-    }),
-    ApiForbiddenResponse({ description: 'Admin access required' }),
   );
 }
 
