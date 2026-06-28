@@ -18,22 +18,22 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 import { formatResponse } from '../../common/format-response.util';
 import {
-  buildDocumentOnlyChangePayload,
+  buildStoredDocumentOnlyChangePayload,
   buildStoredInspectionChangePayload,
-  buildInsuranceChangePayload,
-  buildPcoDocumentChangePayload,
-  DocumentOnlyChangePayload,
-  documentOnlyChangePayloadDiffers,
+  buildStoredInsuranceChangePayload,
+  buildStoredPcoDocumentChangePayload,
+  documentOnlyPayloadToPartialPrismaUpdate,
   documentOnlyPayloadToPrismaUpdate,
   inspectionPayloadToPartialPrismaUpdate,
   inspectionPayloadToPrismaUpdate,
+  insurancePayloadToPartialPrismaUpdate,
+  parseDocumentOnlyStoredPayload,
   parseInspectionStoredPayload,
-  InsuranceChangePayload,
-  insuranceChangePayloadDiffers,
+  parseInsuranceStoredPayload,
+  parsePcoDocumentStoredPayload,
   insurancePayloadToPrismaUpdate,
   mapChangePayloadForResponse,
-  PcoDocumentChangePayload,
-  pcoDocumentChangePayloadDiffers,
+  pcoDocumentPayloadToPartialPrismaUpdate,
   pcoDocumentPayloadToPrismaUpdate,
   VehicleDocumentChangePayload,
   vehicleDocumentKindLabel,
@@ -534,8 +534,8 @@ export class VehicleDocumentChangeRequestService {
     );
 
     const { driver_note, ...fields } = dto;
-    const payload = buildInsuranceChangePayload(existing, fields);
-    if (!insuranceChangePayloadDiffers(payload, existing)) {
+    const payload = buildStoredInsuranceChangePayload(existing, fields);
+    if (payload.changedFields.length === 0) {
       throw new BadRequestException('No changes detected in the change request');
     }
 
@@ -575,8 +575,8 @@ export class VehicleDocumentChangeRequestService {
     );
 
     const { driver_note, ...fields } = dto;
-    const payload = buildPcoDocumentChangePayload(existing, fields);
-    if (!pcoDocumentChangePayloadDiffers(payload, existing)) {
+    const payload = buildStoredPcoDocumentChangePayload(existing, fields);
+    if (payload.changedFields.length === 0) {
       throw new BadRequestException('No changes detected in the change request');
     }
 
@@ -615,8 +615,8 @@ export class VehicleDocumentChangeRequestService {
       vehicleId,
     );
 
-    const payload = buildDocumentOnlyChangePayload(existing, dto);
-    if (!documentOnlyChangePayloadDiffers(payload, existing)) {
+    const payload = buildStoredDocumentOnlyChangePayload(existing, dto);
+    if (payload.changedFields.length === 0) {
       throw new BadRequestException('No changes detected in the change request');
     }
 
@@ -655,8 +655,8 @@ export class VehicleDocumentChangeRequestService {
       vehicleId,
     );
 
-    const payload = buildDocumentOnlyChangePayload(existing, dto);
-    if (!documentOnlyChangePayloadDiffers(payload, existing)) {
+    const payload = buildStoredDocumentOnlyChangePayload(existing, dto);
+    if (payload.changedFields.length === 0) {
       throw new BadRequestException('No changes detected in the change request');
     }
 
@@ -695,8 +695,8 @@ export class VehicleDocumentChangeRequestService {
       vehicleId,
     );
 
-    const payload = buildDocumentOnlyChangePayload(existing, dto);
-    if (!documentOnlyChangePayloadDiffers(payload, existing)) {
+    const payload = buildStoredDocumentOnlyChangePayload(existing, dto);
+    if (payload.changedFields.length === 0) {
       throw new BadRequestException('No changes detected in the change request');
     }
 
@@ -997,8 +997,6 @@ export class VehicleDocumentChangeRequestService {
       payload: unknown;
     },
   ): Promise<void> {
-    const payload = changeRequest.payload as VehicleDocumentChangePayload;
-
     switch (changeRequest.targetType) {
       case VehicleDocumentKind.INSPECTION: {
         const { data, changedFields } = parseInspectionStoredPayload(
@@ -1014,38 +1012,76 @@ export class VehicleDocumentChangeRequestService {
         });
         return;
       }
-      case VehicleDocumentKind.INSURANCE:
+      case VehicleDocumentKind.INSURANCE: {
+        const { data, changedFields } = parseInsuranceStoredPayload(
+          changeRequest.payload,
+        );
+        const update =
+          changedFields && changedFields.length > 0
+            ? insurancePayloadToPartialPrismaUpdate(data, changedFields)
+            : insurancePayloadToPrismaUpdate(data);
         await tx.vehicleInsurance.update({
           where: { id: changeRequest.targetDocumentId },
-          data: insurancePayloadToPrismaUpdate(payload as InsuranceChangePayload),
+          data: update,
         });
         return;
-      case VehicleDocumentKind.PCO_DOCUMENT:
+      }
+      case VehicleDocumentKind.PCO_DOCUMENT: {
+        const { data, changedFields } = parsePcoDocumentStoredPayload(
+          changeRequest.payload,
+        );
+        const update =
+          changedFields && changedFields.length > 0
+            ? pcoDocumentPayloadToPartialPrismaUpdate(data, changedFields)
+            : pcoDocumentPayloadToPrismaUpdate(data);
         await tx.vehiclePcoDocument.update({
           where: { id: changeRequest.targetDocumentId },
-          data: pcoDocumentPayloadToPrismaUpdate(payload as PcoDocumentChangePayload),
+          data: update,
         });
         return;
-      case VehicleDocumentKind.PERMISSION_LETTER:
+      }
+      case VehicleDocumentKind.PERMISSION_LETTER: {
+        const { data, changedFields } = parseDocumentOnlyStoredPayload(
+          changeRequest.payload,
+        );
+        const update =
+          changedFields && changedFields.length > 0
+            ? documentOnlyPayloadToPartialPrismaUpdate(data, changedFields)
+            : documentOnlyPayloadToPrismaUpdate(data);
         await tx.permissionLetter.update({
           where: { id: changeRequest.targetDocumentId },
-          data: documentOnlyPayloadToPrismaUpdate(payload as DocumentOnlyChangePayload),
+          data: update,
         });
         return;
-      case VehicleDocumentKind.SCHEDULE:
+      }
+      case VehicleDocumentKind.SCHEDULE: {
+        const { data, changedFields } = parseDocumentOnlyStoredPayload(
+          changeRequest.payload,
+        );
+        const update =
+          changedFields && changedFields.length > 0
+            ? documentOnlyPayloadToPartialPrismaUpdate(data, changedFields)
+            : documentOnlyPayloadToPrismaUpdate(data);
         await tx.vehicleSchedule.update({
           where: { id: changeRequest.targetDocumentId },
-          data: documentOnlyPayloadToPrismaUpdate(payload as DocumentOnlyChangePayload),
+          data: update,
         });
         return;
-      case VehicleDocumentKind.LOG_BOOK_V5:
+      }
+      case VehicleDocumentKind.LOG_BOOK_V5: {
+        const { data, changedFields } = parseDocumentOnlyStoredPayload(
+          changeRequest.payload,
+        );
+        const update =
+          changedFields && changedFields.length > 0
+            ? documentOnlyPayloadToPartialPrismaUpdate(data, changedFields)
+            : documentOnlyPayloadToPrismaUpdate(data);
         await tx.logBookV5.update({
           where: { id: changeRequest.targetDocumentId },
-          data: documentOnlyPayloadToPrismaUpdate(
-            payload as DocumentOnlyChangePayload,
-          ) as Prisma.LogBookV5UpdateInput,
+          data: update as Prisma.LogBookV5UpdateInput,
         });
         return;
+      }
       default:
         throw new BadRequestException('Unsupported document type');
     }

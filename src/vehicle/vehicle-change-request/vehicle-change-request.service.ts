@@ -17,11 +17,12 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { formatResponse } from '../../common/format-response.util';
 import { lastValueFrom } from 'rxjs';
 import {
-  buildVehicleChangePayload,
+  buildStoredVehicleChangePayload,
   mapVehicleChangePayloadForResponse,
+  StoredVehicleChangePayload,
   VehicleChangeInput,
-  VehicleChangePayload,
-  vehicleChangePayloadDiffers,
+  parseVehicleStoredPayload,
+  vehiclePayloadToPartialPrismaUpdate,
   vehiclePayloadToPrismaUpdate,
 } from '../../common/vehicle-change-payload.util';
 import { notifyAdminsVehicleChangeRequestSubmitted } from '../../common/vehicle-change-request-notification.util';
@@ -82,7 +83,7 @@ export class VehicleChangeRequestService {
       vehicleId: row.vehicleId,
       status: row.status,
       payload: mapVehicleChangePayloadForResponse(
-        row.payload as VehicleChangePayload,
+        row.payload as StoredVehicleChangePayload,
       ),
       driver_note: row.driver_note,
       rejected_reason: row.rejected_reason,
@@ -290,11 +291,11 @@ export class VehicleChangeRequestService {
     }
 
     const { driver_note, ...fields } = dto;
-    const payload = buildVehicleChangePayload(
+    const payload = buildStoredVehicleChangePayload(
       vehicle,
       fields as VehicleChangeInput,
     );
-    if (!vehicleChangePayloadDiffers(payload, vehicle)) {
+    if (payload.changedFields.length === 0) {
       throw new BadRequestException('No changes detected in the change request');
     }
 
@@ -509,21 +510,32 @@ export class VehicleChangeRequestService {
       };
 
       if (dto.decision === VehicleDocumentChangeRequestStatus.ACCEPTED) {
-        const payload = changeRequest.payload as VehicleChangePayload;
-        const duplicatePlate = await tx.vehicle.findFirst({
-          where: {
-            plateNumber: payload.plateNumber,
-            id: { not: vehicle.id },
-          },
-          select: { id: true },
-        });
-        if (duplicatePlate) {
-          throw new BadRequestException('Plate number already exists');
+        const { data, changedFields } = parseVehicleStoredPayload(
+          changeRequest.payload,
+        );
+        const plateChanging =
+          !changedFields?.length ||
+          changedFields.includes('plateNumber');
+        if (plateChanging) {
+          const duplicatePlate = await tx.vehicle.findFirst({
+            where: {
+              plateNumber: data.plateNumber,
+              id: { not: vehicle.id },
+            },
+            select: { id: true },
+          });
+          if (duplicatePlate) {
+            throw new BadRequestException('Plate number already exists');
+          }
         }
 
+        const update =
+          changedFields && changedFields.length > 0
+            ? vehiclePayloadToPartialPrismaUpdate(data, changedFields)
+            : vehiclePayloadToPrismaUpdate(data);
         await tx.vehicle.update({
           where: { id: vehicle.id },
-          data: vehiclePayloadToPrismaUpdate(payload),
+          data: update,
         });
       }
 

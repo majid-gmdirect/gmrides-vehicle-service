@@ -12,6 +12,12 @@ export type VehicleChangePayload = {
   vehicle_schedule: Record<string, unknown> | null;
 };
 
+export type VehicleChangeField = keyof VehicleChangePayload;
+
+export type StoredVehicleChangePayload = VehicleChangePayload & {
+  changedFields: VehicleChangeField[];
+};
+
 export type VehicleChangeInput = {
   make?: string;
   model?: string;
@@ -73,6 +79,90 @@ function stableJson(value: unknown): string {
   return JSON.stringify(value ?? null);
 }
 
+const VEHICLE_CHANGE_FIELDS = [
+  'make',
+  'model',
+  'year',
+  'color',
+  'plateNumber',
+  'isActive',
+  'permission_letter',
+  'vehicle_schedule',
+] as const satisfies readonly VehicleChangeField[];
+
+function parseStoredChangedFields<T extends string>(
+  raw: unknown,
+  allowed: readonly T[],
+): { changedFields: T[] | null; rest: Record<string, unknown> } {
+  if (!raw || typeof raw !== 'object') {
+    return { changedFields: null, rest: {} };
+  }
+  const o = raw as Record<string, unknown>;
+  const changedFields = Array.isArray(o.changedFields)
+    ? o.changedFields.filter((field): field is T => allowed.includes(field as T))
+    : null;
+  return { changedFields, rest: o };
+}
+
+export function computeVehicleChangedFields(
+  existing: Vehicle,
+  dto: VehicleChangeInput,
+): VehicleChangeField[] {
+  const current = buildVehicleChangePayload(existing, {});
+  const changed: VehicleChangeField[] = [];
+
+  for (const field of VEHICLE_CHANGE_FIELDS) {
+    if ((dto as Record<string, unknown>)[field] === undefined) continue;
+    const proposed = buildVehicleChangePayload(existing, dto);
+    if (field === 'permission_letter' || field === 'vehicle_schedule') {
+      if (stableJson(current[field]) !== stableJson(proposed[field])) {
+        changed.push(field);
+      }
+    } else if (current[field] !== proposed[field]) {
+      changed.push(field);
+    }
+  }
+
+  return changed;
+}
+
+export function buildStoredVehicleChangePayload(
+  existing: Vehicle,
+  dto: VehicleChangeInput,
+): StoredVehicleChangePayload {
+  return {
+    ...buildVehicleChangePayload(existing, dto),
+    changedFields: computeVehicleChangedFields(existing, dto),
+  };
+}
+
+export function parseVehicleStoredPayload(raw: unknown): {
+  data: VehicleChangePayload;
+  changedFields: VehicleChangeField[] | null;
+} {
+  const { changedFields, rest } = parseStoredChangedFields(
+    raw,
+    VEHICLE_CHANGE_FIELDS,
+  );
+  return {
+    data: {
+      make: (rest.make as string | undefined) ?? '',
+      model: (rest.model as string | undefined) ?? '',
+      year: (rest.year as number | undefined) ?? 0,
+      color: (rest.color as string | null | undefined) ?? null,
+      plateNumber: (rest.plateNumber as string | undefined) ?? '',
+      isActive: (rest.isActive as boolean | undefined) ?? true,
+      permission_letter:
+        (rest.permission_letter as Record<string, unknown> | null | undefined) ??
+        null,
+      vehicle_schedule:
+        (rest.vehicle_schedule as Record<string, unknown> | null | undefined) ??
+        null,
+    },
+    changedFields,
+  };
+}
+
 export function vehicleChangePayloadDiffers(
   payload: VehicleChangePayload,
   existing: Vehicle,
@@ -106,10 +196,24 @@ export function vehiclePayloadToPrismaUpdate(
   };
 }
 
-export function mapVehicleChangePayloadForResponse(
+export function vehiclePayloadToPartialPrismaUpdate(
   payload: VehicleChangePayload,
+  changedFields: VehicleChangeField[],
+): Prisma.VehicleUpdateInput {
+  const full = vehiclePayloadToPrismaUpdate(payload);
+  const data: Prisma.VehicleUpdateInput = {};
+
+  for (const field of changedFields) {
+    (data as Record<string, unknown>)[field] = (full as Record<string, unknown>)[field];
+  }
+
+  return data;
+}
+
+export function mapVehicleChangePayloadForResponse(
+  payload: VehicleChangePayload | StoredVehicleChangePayload,
 ): Record<string, unknown> {
-  return {
+  const response: Record<string, unknown> = {
     make: payload.make,
     model: payload.model,
     year: payload.year,
@@ -119,4 +223,8 @@ export function mapVehicleChangePayloadForResponse(
     permission_letter: pickPublicMediaRef(payload.permission_letter),
     vehicle_schedule: pickPublicMediaRef(payload.vehicle_schedule),
   };
+  if ('changedFields' in payload && payload.changedFields?.length) {
+    response.changedFields = payload.changedFields;
+  }
+  return response;
 }
