@@ -2,6 +2,7 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import {
   IsBoolean,
+  IsEnum,
   IsIn,
   IsInt,
   IsOptional,
@@ -9,6 +10,7 @@ import {
   Max,
   Min,
 } from 'class-validator';
+import { VehicleType } from './vehicle-type.enum';
 
 export class ListVehiclesQueryDto {
   @ApiPropertyOptional({ description: 'Search by plate/make/model', example: 'pri' })
@@ -68,6 +70,15 @@ export class ListVehiclesQueryDto {
   })
   @IsBoolean()
   isActive?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Filter by vehicle category',
+    enum: VehicleType,
+    example: VehicleType.LUXURY,
+  })
+  @IsOptional()
+  @IsEnum(VehicleType)
+  vehicleType?: VehicleType;
 
   @ApiPropertyOptional({
     description:

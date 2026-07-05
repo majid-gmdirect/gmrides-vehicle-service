@@ -1,4 +1,4 @@
-import { Prisma, Vehicle } from '@prisma/client';
+import { Prisma, Vehicle, VehicleType } from '@prisma/client';
 import { pickPublicMediaRef } from './json-media.util';
 
 export type VehicleChangePayload = {
@@ -7,6 +7,7 @@ export type VehicleChangePayload = {
   year: number;
   color: string | null;
   plateNumber: string;
+  vehicleType: VehicleType;
   isActive: boolean;
   permission_letter: Record<string, unknown> | null;
   vehicle_schedule: Record<string, unknown> | null;
@@ -24,6 +25,7 @@ export type VehicleChangeInput = {
   year?: number;
   color?: string;
   plateNumber?: string;
+  vehicleType?: VehicleType;
   isActive?: boolean;
   permission_letter?: Record<string, unknown>;
   vehicle_schedule?: Record<string, unknown>;
@@ -66,6 +68,8 @@ export function buildVehicleChangePayload(
       dto.plateNumber !== undefined
         ? normalizePlate(dto.plateNumber)
         : existing.plateNumber,
+    vehicleType:
+      dto.vehicleType !== undefined ? dto.vehicleType : existing.vehicleType,
     isActive: dto.isActive !== undefined ? dto.isActive : existing.isActive,
     permission_letter: mediaFromDto(
       dto.permission_letter,
@@ -85,6 +89,7 @@ const VEHICLE_CHANGE_FIELDS = [
   'year',
   'color',
   'plateNumber',
+  'vehicleType',
   'isActive',
   'permission_letter',
   'vehicle_schedule',
@@ -151,6 +156,8 @@ export function parseVehicleStoredPayload(raw: unknown): {
       year: (rest.year as number | undefined) ?? 0,
       color: (rest.color as string | null | undefined) ?? null,
       plateNumber: (rest.plateNumber as string | undefined) ?? '',
+      vehicleType:
+        (rest.vehicleType as VehicleType | undefined) ?? VehicleType.STANDARD,
       isActive: (rest.isActive as boolean | undefined) ?? true,
       permission_letter:
         (rest.permission_letter as Record<string, unknown> | null | undefined) ??
@@ -174,6 +181,7 @@ export function vehicleChangePayloadDiffers(
     current.year !== payload.year ||
     current.color !== payload.color ||
     current.plateNumber !== payload.plateNumber ||
+    current.vehicleType !== payload.vehicleType ||
     current.isActive !== payload.isActive ||
     stableJson(current.permission_letter) !==
       stableJson(payload.permission_letter) ||
@@ -190,6 +198,7 @@ export function vehiclePayloadToPrismaUpdate(
     year: payload.year,
     color: payload.color,
     plateNumber: payload.plateNumber,
+    vehicleType: payload.vehicleType,
     isActive: payload.isActive,
     permission_letter: payload.permission_letter as Prisma.InputJsonValue,
     vehicle_schedule: payload.vehicle_schedule as Prisma.InputJsonValue,
@@ -219,6 +228,7 @@ export function mapVehicleChangePayloadForResponse(
     year: payload.year,
     color: payload.color,
     plateNumber: payload.plateNumber,
+    vehicleType: payload.vehicleType,
     isActive: payload.isActive,
     permission_letter: pickPublicMediaRef(payload.permission_letter),
     vehicle_schedule: pickPublicMediaRef(payload.vehicle_schedule),

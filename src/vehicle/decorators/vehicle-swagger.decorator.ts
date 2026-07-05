@@ -30,6 +30,7 @@ import {
   UpdateVehicleActiveDto,
   UpdateVehicleApprovedDto,
   UpdateVehicleRequestOptionalDocumentsDto,
+  VehicleType,
   CreateLogBookV5Dto,
   UpdateLogBookV5Dto,
   AdminReviewLogBookV5Dto,
@@ -114,6 +115,12 @@ export function AdminListVehiclesSwagger(): MethodDecorator {
     ApiQuery({ name: 'isApproved', required: false, type: Boolean }),
     ApiQuery({ name: 'isActive', required: false, type: Boolean }),
     ApiQuery({
+      name: 'vehicleType',
+      required: false,
+      enum: VehicleType,
+      description: 'Filter by vehicle category (Standard, Executive, Luxury, 7 Seater)',
+    }),
+    ApiQuery({
       name: 'isExpired',
       required: false,
       type: Boolean,
@@ -131,7 +138,7 @@ export function AdminApproveVehicleSwagger(): MethodDecorator {
     ApiOperation({
       summary: 'Admin: approve/unapprove a vehicle',
       description:
-        'Approval requires accepted log book V5, inspection, insurance, and PCO documents. When requiestOptionalDocuments is true, accepted permission letter and vehicle schedule are also required.',
+        'Approval requires accepted log book V5, inspection, insurance, and PCO documents. When requiestOptionalDocuments is true, accepted permission letter and vehicle schedule are also required. Optionally set vehicleType when approving so the fleet category is recorded.',
     }),
     ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
     ApiBody({ type: UpdateVehicleApprovedDto }),

@@ -2,6 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsBoolean,
+  IsEnum,
   IsInt,
   IsOptional,
   IsString,
@@ -9,6 +10,7 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
+import { VehicleType } from './vehicle-type.enum';
 
 class UploadFilePayloadDto {
   @ApiProperty({ example: 'file-id' })
@@ -43,6 +45,14 @@ export class CreateVehicleDto {
   @ApiProperty({ description: 'Plate number', example: 'AB12CDE' })
   @IsString()
   plateNumber: string;
+
+  @ApiProperty({
+    description: 'Passenger-facing vehicle category',
+    enum: VehicleType,
+    example: VehicleType.STANDARD,
+  })
+  @IsEnum(VehicleType)
+  vehicleType: VehicleType;
 
   @ApiPropertyOptional({
     description: 'Whether vehicle is active (driver can toggle)',

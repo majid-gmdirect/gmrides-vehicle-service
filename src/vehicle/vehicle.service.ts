@@ -442,6 +442,7 @@ export class VehicleService {
         year: dto.year,
         color: dto.color?.trim(),
         plateNumber: normalizedPlate,
+        vehicleType: dto.vehicleType,
         ...(dto.isActive !== undefined && { isActive: dto.isActive }),
         ...(dto.permission_letter !== undefined && {
           permission_letter: dto.permission_letter as unknown as Prisma.InputJsonValue,
@@ -550,6 +551,7 @@ export class VehicleService {
     if (dto.model !== undefined) data.model = dto.model.trim();
     if (dto.year !== undefined) data.year = dto.year;
     if (dto.color !== undefined) data.color = dto.color?.trim() || null;
+    if (dto.vehicleType !== undefined) data.vehicleType = dto.vehicleType;
     if (dto.isActive !== undefined) data.isActive = dto.isActive;
     if (dto.permission_letter !== undefined) {
       data.permission_letter = dto.permission_letter as unknown as Prisma.InputJsonValue;
@@ -649,6 +651,7 @@ export class VehicleService {
       isActive,
       isApproved,
       isExpired,
+      vehicleType,
     } = query;
     const skip = (page - 1) * limit;
     const expiredDocumentWhere = this.buildVehicleExpiredDocumentWhere();
@@ -669,6 +672,7 @@ export class VehicleService {
       }),
       ...(isActive !== undefined && { isActive }),
       ...(isApproved !== undefined && { isApproved }),
+      ...(vehicleType !== undefined && { vehicleType }),
       ...(isExpired === true && expiredDocumentWhere),
       ...(isExpired === false && { NOT: expiredDocumentWhere }),
     };
@@ -726,7 +730,10 @@ export class VehicleService {
 
     const vehicle = await this.prisma.vehicle.update({
       where: { id: vehicleId },
-      data: { isApproved: dto.isApproved },
+      data: {
+        isApproved: dto.isApproved,
+        ...(dto.vehicleType !== undefined && { vehicleType: dto.vehicleType }),
+      },
     });
 
     if (dto.isApproved && !existing.isApproved) {
