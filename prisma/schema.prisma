@@ -69,6 +69,7 @@ model Vehicle {
 
   isApproved Boolean @default(false) // admin approval
   isActive   Boolean @default(true) // currently in use
+  isDeleted  Boolean @default(false) // soft-deleted when driver is archived
 
   permission_letter Json?
   vehicle_schedule  Json?

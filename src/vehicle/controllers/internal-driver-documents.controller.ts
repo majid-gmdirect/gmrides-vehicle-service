@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import { Controller, Delete, Get, Param, Patch, Query } from '@nestjs/common';
 import { ApiExcludeController } from '@nestjs/swagger';
 import { InternalRoute } from '../../auth/internal.decorator';
 import { VehicleService } from '../vehicle.service';
@@ -31,5 +31,23 @@ export class InternalDriverDocumentsController {
       driverId,
       query.horizonDays,
     );
+  }
+
+  @Delete(':driverId/vehicles')
+  @InternalRoute()
+  deleteAllVehiclesForDriver(@Param('driverId') driverId: string) {
+    return this.vehicleService.deleteAllVehiclesForDriver(driverId);
+  }
+
+  @Patch(':driverId/vehicles/archive')
+  @InternalRoute()
+  archiveAllVehiclesForDriver(@Param('driverId') driverId: string) {
+    return this.vehicleService.archiveAllVehiclesForDriver(driverId);
+  }
+
+  @Patch(':driverId/vehicles/restore')
+  @InternalRoute()
+  restoreAllVehiclesForDriver(@Param('driverId') driverId: string) {
+    return this.vehicleService.restoreAllVehiclesForDriver(driverId);
   }
 }

@@ -189,6 +189,7 @@ export class VehicleService {
       const role = res?.data?.role;
       const isDeleted = res?.data?.isDeleted;
       const isBlocked = res?.data?.isBlocked;
+      const hasDriverProfile = res?.data?.hasDriverProfile;
 
       if (isDeleted) throw new NotFoundException('Driver not found');
       if (isBlocked) {
@@ -196,6 +197,9 @@ export class VehicleService {
       }
       if (role !== 'DRIVER') {
         throw new BadRequestException('Target user is not a driver');
+      }
+      if (hasDriverProfile === false) {
+        throw new NotFoundException('Driver profile not found');
       }
     } catch (err: any) {
       const status = err?.response?.status;
@@ -414,7 +418,7 @@ export class VehicleService {
 
   private async getVehicleForDriverOrThrow(driverId: string, vehicleId: string) {
     const vehicle = await this.prisma.vehicle.findFirst({
-      where: { id: vehicleId, driverId },
+      where: { id: vehicleId, driverId, isDeleted: false },
     });
     if (!vehicle) throw new NotFoundException('Vehicle not found');
     return vehicle;
@@ -426,8 +430,8 @@ export class VehicleService {
 
     const normalizedPlate = dto.plateNumber.trim().toUpperCase();
 
-    const existingPlate = await this.prisma.vehicle.findUnique({
-      where: { plateNumber: normalizedPlate },
+    const existingPlate = await this.prisma.vehicle.findFirst({
+      where: { plateNumber: normalizedPlate, isDeleted: false },
       select: { id: true },
     });
     if (existingPlate) {
@@ -471,6 +475,7 @@ export class VehicleService {
 
     const where: Prisma.VehicleWhereInput = {
       driverId,
+      isDeleted: false,
       ...(search && {
         OR: [
           {
@@ -514,7 +519,7 @@ export class VehicleService {
     await this.assertDriverExistsAndIsDriver(driverId);
 
     const vehicle = await this.prisma.vehicle.findFirst({
-      where: { id: vehicleId, driverId },
+      where: { id: vehicleId, driverId, isDeleted: false },
       include: {
         images: true,
         inspections: true,
@@ -568,8 +573,8 @@ export class VehicleService {
 
     if (dto.plateNumber !== undefined) {
       const normalizedPlate = dto.plateNumber.trim().toUpperCase();
-      const existingPlate = await this.prisma.vehicle.findUnique({
-        where: { plateNumber: normalizedPlate },
+      const existingPlate = await this.prisma.vehicle.findFirst({
+        where: { plateNumber: normalizedPlate, isDeleted: false },
         select: { id: true },
       });
       if (existingPlate && existingPlate.id !== vehicleId) {
@@ -609,10 +614,52 @@ export class VehicleService {
     });
   }
 
+  /** Internal: remove all vehicles (and cascaded docs) when a driver is permanently deleted. */
+  async deleteAllVehiclesForDriver(driverId: string) {
+    const result = await this.prisma.vehicle.deleteMany({
+      where: { driverId },
+    });
+
+    return formatResponse({
+      success: true,
+      data: { deletedCount: result.count },
+      message: 'All driver vehicles deleted successfully',
+    });
+  }
+
+  /** Internal: soft-delete all vehicles when a driver is archived. */
+  async archiveAllVehiclesForDriver(driverId: string) {
+    const result = await this.prisma.vehicle.updateMany({
+      where: { driverId, isDeleted: false },
+      data: { isDeleted: true, isActive: false },
+    });
+
+    return formatResponse({
+      success: true,
+      data: { archivedCount: result.count },
+      message: 'All driver vehicles archived successfully',
+    });
+  }
+
+  /** Internal: restore archived vehicles when a driver is unarchived. */
+  async restoreAllVehiclesForDriver(driverId: string) {
+    const result = await this.prisma.vehicle.updateMany({
+      where: { driverId, isDeleted: true },
+      data: { isDeleted: false, isActive: true },
+    });
+
+    return formatResponse({
+      success: true,
+      data: { restoredCount: result.count },
+      message: 'All archived driver vehicles restored successfully',
+    });
+  }
+
   private buildVehicleExpiredDocumentWhere(
     reference = new Date(),
   ): Prisma.VehicleWhereInput {
     return {
+      isDeleted: false,
       OR: [
         {
           inspections: {
@@ -657,6 +704,7 @@ export class VehicleService {
     const expiredDocumentWhere = this.buildVehicleExpiredDocumentWhere();
 
     const where: Prisma.VehicleWhereInput = {
+      isDeleted: false,
       ...(search && {
         OR: [
           {
@@ -2155,7 +2203,7 @@ export class VehicleService {
   /** Internal: document review statuses for all vehicles owned by a driver. */
   async getInternalDriverVehicleDocumentStatus(driverId: string) {
     const vehicles = await this.prisma.vehicle.findMany({
-      where: { driverId },
+      where: { driverId, isDeleted: false },
       orderBy: { createdAt: 'desc' },
       select: {
         id: true,
@@ -2273,7 +2321,7 @@ export class VehicleService {
     reference = new Date(),
   ) {
     const vehicles = await this.prisma.vehicle.findMany({
-      where: { driverId },
+      where: { driverId, isDeleted: false },
       orderBy: { createdAt: 'desc' },
       select: {
         id: true,
