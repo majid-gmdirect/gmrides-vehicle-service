@@ -784,32 +784,6 @@ export class VehicleService {
     });
   }
 
-  private async maybeClearOptionalDocumentsRequest(vehicleId: string): Promise<void> {
-    const vehicle = await this.prisma.vehicle.findUnique({
-      where: { id: vehicleId },
-      select: { requiestOptionalDocuments: true },
-    });
-    if (!vehicle?.requiestOptionalDocuments) return;
-
-    const [acceptedPermissionLetter, acceptedSchedule] = await Promise.all([
-      this.prisma.permissionLetter.findFirst({
-        where: { vehicleId, status: DocumentStatus.ACCEPTED },
-        select: { id: true },
-      }),
-      this.prisma.vehicleSchedule.findFirst({
-        where: { vehicleId, status: DocumentStatus.ACCEPTED },
-        select: { id: true },
-      }),
-    ]);
-
-    if (acceptedPermissionLetter && acceptedSchedule) {
-      await this.prisma.vehicle.update({
-        where: { id: vehicleId },
-        data: { requiestOptionalDocuments: false },
-      });
-    }
-  }
-
   // -----------------------
   // Images
   // -----------------------
@@ -1947,10 +1921,6 @@ export class VehicleService {
       row,
     );
 
-    if (row.status === DocumentStatus.ACCEPTED) {
-      void this.maybeClearOptionalDocumentsRequest(vehicleId);
-    }
-
     return formatResponse({
       success: true,
       data: row,
@@ -2166,10 +2136,6 @@ export class VehicleService {
       existing.status,
       row,
     );
-
-    if (row.status === DocumentStatus.ACCEPTED) {
-      void this.maybeClearOptionalDocumentsRequest(vehicleId);
-    }
 
     return formatResponse({
       success: true,

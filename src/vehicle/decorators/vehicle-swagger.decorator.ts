@@ -166,7 +166,7 @@ export function AdminRequestOptionalDocumentsSwagger(): MethodDecorator {
     ApiOperation({
       summary: 'Admin: request driver to upload optional documents',
       description:
-        'Sets requiestOptionalDocuments on the vehicle. Clears automatically when both permission letter and vehicle schedule are accepted.',
+        'Sets requiestOptionalDocuments on the vehicle. Admin must set it back to false explicitly when the optional document request is no longer needed.',
     }),
     ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
     ApiBody({ type: UpdateVehicleRequestOptionalDocumentsDto }),
