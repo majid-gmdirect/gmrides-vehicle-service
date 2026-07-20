@@ -7,12 +7,20 @@ import { DriverDocumentExpiryQueryDto } from '../dto/driver-document-expiry-quer
 @ApiExcludeController()
 @Controller('internal/driver')
 export class InternalDriverDocumentsController {
-  constructor(private readonly vehicleService: VehicleService) {}
+  constructor(private readonly vehicleService: VehicleService) { }
 
   @Get('expired-document-driver-ids')
   @InternalRoute()
   getExpiredDocumentDriverIds() {
     return this.vehicleService.getInternalExpiredDocumentDriverIds();
+  }
+
+  @Get('expiring-document-driver-ids')
+  @InternalRoute()
+  getExpiringDocumentDriverIds(@Query() query: DriverDocumentExpiryQueryDto) {
+    return this.vehicleService.getInternalExpiringDocumentDriverIds(
+      query.horizonDays,
+    );
   }
 
   @Get(':driverId/document-status')

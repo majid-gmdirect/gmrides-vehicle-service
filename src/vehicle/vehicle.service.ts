@@ -75,7 +75,7 @@ export class VehicleService {
     private readonly httpService: HttpService,
     @Inject('NOTIFICATION_SERVICE')
     private readonly notificationClient: ClientProxy,
-  ) {}
+  ) { }
 
   private mergeAdminReviewFieldsOnCreate(
     isAdmin: boolean,
@@ -224,12 +224,12 @@ export class VehicleService {
     const base =
       user && (user.first_name || user.last_name || user.email || user.avatar !== undefined)
         ? {
-            id: userId,
-            firstName: user.first_name ?? null,
-            lastName: user.last_name ?? null,
-            email: user.email ?? null,
-            avatar: user.avatar ?? null,
-          }
+          id: userId,
+          firstName: user.first_name ?? null,
+          lastName: user.last_name ?? null,
+          email: user.email ?? null,
+          avatar: user.avatar ?? null,
+        }
         : userId
           ? { id: userId }
           : {};
@@ -682,6 +682,41 @@ export class VehicleService {
             some: {
               status: DocumentStatus.ACCEPTED,
               expiryDate: { not: null, lt: reference },
+            },
+          },
+        },
+      ],
+    };
+  }
+
+  private buildVehicleExpiringDocumentWhere(
+    reference: Date,
+    horizon: Date,
+  ): Prisma.VehicleWhereInput {
+    return {
+      isDeleted: false,
+      OR: [
+        {
+          inspections: {
+            some: {
+              status: DocumentStatus.ACCEPTED,
+              expiryDate: { gte: reference, lte: horizon },
+            },
+          },
+        },
+        {
+          insurances: {
+            some: {
+              status: DocumentStatus.ACCEPTED,
+              endDate: { gte: reference, lte: horizon },
+            },
+          },
+        },
+        {
+          pcoDocs: {
+            some: {
+              status: DocumentStatus.ACCEPTED,
+              expiryDate: { gte: reference, lte: horizon },
             },
           },
         },
@@ -2475,6 +2510,31 @@ export class VehicleService {
       success: true,
       data: { driverIds },
       message: 'Drivers with expired vehicle documents retrieved successfully',
+    });
+  }
+
+  async getInternalExpiringDocumentDriverIds(
+    horizonDays = 30,
+    reference = new Date(),
+  ) {
+    const safeHorizon = Math.min(Math.max(horizonDays, 1), 90);
+    const horizon = new Date(
+      reference.getTime() + safeHorizon * 86_400_000,
+    );
+
+    const vehicles = await this.prisma.vehicle.findMany({
+      where: this.buildVehicleExpiringDocumentWhere(reference, horizon),
+      select: { driverId: true },
+      distinct: ['driverId'],
+    });
+
+    const driverIds = vehicles.map((v) => v.driverId);
+
+    return formatResponse({
+      success: true,
+      data: { driverIds, horizonDays: safeHorizon },
+      message:
+        'Drivers with soon-to-expire vehicle documents retrieved successfully',
     });
   }
 }
