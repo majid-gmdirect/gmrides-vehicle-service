@@ -102,7 +102,7 @@ export async function tryNotifyDriverVehicleDocumentRejected(
   });
 }
 
-/** Email driver when admin accepts or rejects a change request on an accepted document. */
+/** Email driver when admin rejects a change request on an accepted document. */
 export async function tryNotifyDriverVehicleDocumentChangeRequestReviewed(
   notificationClient: ClientProxy,
   logger: Logger,
@@ -113,26 +113,21 @@ export async function tryNotifyDriverVehicleDocumentChangeRequestReviewed(
     rejectedReason?: string | null;
   },
 ): Promise<void> {
-  const label = vehicleDocumentKindLabel(params.targetType);
-  const title = params.accepted
-    ? `Your ${label} update was accepted`
-    : `Your ${label} update was not accepted`;
-
-  let description: string;
   if (params.accepted) {
-    description =
-      `<p>Your requested changes to your ${label} were <strong>accepted</strong> and are now active.</p>` +
-      `<p>Sign in to your driver account to view the updated document.</p>`;
-  } else {
-    const reason = params.rejectedReason?.trim();
-    const reasonBlock = reason
-      ? `<p><strong>Reason:</strong> ${escapeHtml(reason)}</p>`
-      : '';
-    description =
-      `<p>Your requested changes to your ${label} were <strong>not accepted</strong>.</p>` +
-      reasonBlock +
-      `<p>Your current approved document is unchanged. You may submit a new change request if needed.</p>`;
+    return;
   }
+
+  const label = vehicleDocumentKindLabel(params.targetType);
+  const title = `Your ${label} update was not accepted`;
+
+  const reason = params.rejectedReason?.trim();
+  const reasonBlock = reason
+    ? `<p><strong>Reason:</strong> ${escapeHtml(reason)}</p>`
+    : '';
+  const description =
+    `<p>Your requested changes to your ${label} were <strong>not accepted</strong>.</p>` +
+    reasonBlock +
+    `<p>Your current approved document is unchanged. You may submit a new change request if needed.</p>`;
 
   await emitEmailNotification(notificationClient, logger, {
     title,
@@ -158,7 +153,7 @@ export async function tryNotifyDriverVehicleApproved(
   });
 }
 
-/** Email driver when admin accepts or rejects a vehicle profile change request. */
+/** Email driver when admin rejects a vehicle profile change request. */
 export async function tryNotifyDriverVehicleChangeRequestReviewed(
   notificationClient: ClientProxy,
   logger: Logger,
@@ -168,25 +163,20 @@ export async function tryNotifyDriverVehicleChangeRequestReviewed(
     rejectedReason?: string | null;
   },
 ): Promise<void> {
-  const title = params.accepted
-    ? 'Your vehicle update was accepted'
-    : 'Your vehicle update was not accepted';
-
-  let description: string;
   if (params.accepted) {
-    description =
-      '<p>Your requested changes to your vehicle profile were <strong>accepted</strong> and are now active.</p>' +
-      '<p>Sign in to your driver account to view the updated vehicle.</p>';
-  } else {
-    const reason = params.rejectedReason?.trim();
-    const reasonBlock = reason
-      ? `<p><strong>Reason:</strong> ${escapeHtml(reason)}</p>`
-      : '';
-    description =
-      '<p>Your requested changes to your vehicle profile were <strong>not accepted</strong>.</p>' +
-      reasonBlock +
-      '<p>Your current approved vehicle details are unchanged. You may submit a new change request if needed.</p>';
+    return;
   }
+
+  const title = 'Your vehicle update was not accepted';
+
+  const reason = params.rejectedReason?.trim();
+  const reasonBlock = reason
+    ? `<p><strong>Reason:</strong> ${escapeHtml(reason)}</p>`
+    : '';
+  const description =
+    '<p>Your requested changes to your vehicle profile were <strong>not accepted</strong>.</p>' +
+    reasonBlock +
+    '<p>Your current approved vehicle details are unchanged. You may submit a new change request if needed.</p>';
 
   await emitEmailNotification(notificationClient, logger, {
     title,

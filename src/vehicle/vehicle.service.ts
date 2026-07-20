@@ -42,9 +42,7 @@ import {
   UpdateLogBookV5Dto,
 } from './dto';
 import {
-  tryNotifyDriverVehicleDocumentAccepted,
   tryNotifyDriverVehicleDocumentRejected,
-  tryNotifyDriverVehicleApproved,
 } from '../common/vehicle-document-driver-notification.util';
 import { applyDriverResubmissionReviewReset } from '../common/reset-document-on-driver-resubmission.util';
 import { normalizeToReviewStatus } from '../common/document-review-status.util';
@@ -137,19 +135,6 @@ export class VehicleService {
           driverUserId: driverId,
           targetType,
           rejectedReason: updated.rejectedReason,
-        },
-      );
-    }
-    if (
-      updated.status === DocumentStatus.ACCEPTED &&
-      existingStatus !== DocumentStatus.ACCEPTED
-    ) {
-      void tryNotifyDriverVehicleDocumentAccepted(
-        this.notificationClient,
-        this.logger,
-        {
-          driverUserId: driverId,
-          targetType,
         },
       );
     }
@@ -809,7 +794,7 @@ export class VehicleService {
   }
 
   async adminApproveVehicle(vehicleId: string, dto: UpdateVehicleApprovedDto) {
-    const existing = await this.getVehicleOrThrow(vehicleId);
+    await this.getVehicleOrThrow(vehicleId);
 
     const vehicle = await this.prisma.vehicle.update({
       where: { id: vehicleId },
@@ -818,14 +803,6 @@ export class VehicleService {
         ...(dto.vehicleType !== undefined && { vehicleType: dto.vehicleType }),
       },
     });
-
-    if (dto.isApproved && !existing.isApproved) {
-      void tryNotifyDriverVehicleApproved(
-        this.notificationClient,
-        this.logger,
-        { driverUserId: vehicle.driverId },
-      );
-    }
 
     return formatResponse({
       success: true,
