@@ -8,6 +8,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { Reflector } from '@nestjs/core';
 import { IS_PUBLIC_KEY } from './public.decorator';
+import { timingSafeEqual } from 'crypto';
 @Injectable()
 export class JwtAuthGuard extends AuthGuard('jwt') {
   private readonly logger = new Logger(JwtAuthGuard.name);
@@ -16,9 +17,31 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     userId: 'x-user-id',
     role: 'x-user-role',
     email: 'x-user-email',
+    signature: 'x-gateway-signature',
   };
   constructor(private readonly reflector: Reflector) {
     super();
+  }
+
+  /**
+   * The trusted-gateway header flow is only allowed when GATEWAY_SHARED_SECRET
+   * is configured AND the caller presents a matching x-gateway-signature header
+   * (compared using a constant-time comparison). If the secret isn't set, this
+   * path is disabled entirely and requests fall through to real JWT verification.
+   */
+  private isTrustedGateway(request: any): boolean {
+    const secret = process.env.GATEWAY_SHARED_SECRET;
+    if (!secret) return false;
+    if (request.headers[this.nginxHeaders.trusted] !== 'true') return false;
+
+    const provided = request.headers[this.nginxHeaders.signature];
+    if (typeof provided !== 'string' || provided.length === 0) return false;
+
+    const expected = Buffer.from(secret);
+    const actual = Buffer.from(provided);
+    return (
+      actual.length === expected.length && timingSafeEqual(actual, expected)
+    );
   }
   canActivate(context: ExecutionContext) {
     // 🔓 PUBLIC ROUTE CHECK (added, nothing else touched)
@@ -42,7 +65,7 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     });
 
     // Nginx trusted flow
-    if (request.headers[this.nginxHeaders.trusted] === 'true') {
+    if (this.isTrustedGateway(request)) {
       this.logger.log(
         '🔐 Authentication Method: TRUSTED GATEWAY (Nginx headers)',
       );

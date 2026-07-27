@@ -7,6 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { timingSafeEqual } from 'crypto';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -14,9 +15,30 @@ export class RolesGuard implements CanActivate {
   private readonly nginxHeaders = {
     trusted: 'x-trusted-gateway',
     role: 'x-user-role',
+    signature: 'x-gateway-signature',
   };
 
   constructor(private reflector: Reflector) {}
+
+  /**
+   * Mirrors JwtAuthGuard.isTrustedGateway: the trusted-gateway header flow is
+   * only honored when GATEWAY_SHARED_SECRET is configured and the request
+   * presents a matching x-gateway-signature header (constant-time compare).
+   */
+  private isTrustedGateway(request: any): boolean {
+    const secret = process.env.GATEWAY_SHARED_SECRET;
+    if (!secret) return false;
+    if (request.headers[this.nginxHeaders.trusted] !== 'true') return false;
+
+    const provided = request.headers[this.nginxHeaders.signature];
+    if (typeof provided !== 'string' || provided.length === 0) return false;
+
+    const expected = Buffer.from(secret);
+    const actual = Buffer.from(provided);
+    return (
+      actual.length === expected.length && timingSafeEqual(actual, expected)
+    );
+  }
 
   canActivate(context: ExecutionContext): boolean {
     const requiredRoles = this.reflector.get<string[]>(
@@ -34,7 +56,7 @@ export class RolesGuard implements CanActivate {
     const user = request.user;
 
     // 1. Check Nginx trusted headers flow
-    if (request.headers[this.nginxHeaders.trusted] === 'true') {
+    if (this.isTrustedGateway(request)) {
       this.logger.log('🔐 Using Nginx header authentication');
       const nginxRole = request.headers[this.nginxHeaders.role];
 
