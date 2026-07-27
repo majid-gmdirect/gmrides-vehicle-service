@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # ---- Build stage -----------------------------------------------------
 FROM node:20-alpine AS build
 
@@ -13,7 +14,11 @@ COPY package.json yarn.lock .yarnrc.yml ./
 
 RUN yarn config set npmRegistryServer "https://registry.npmjs.org/"
 
-RUN yarn install --frozen-lockfile
+# Cache mounts keep already-downloaded packages/engines across retries, so a
+# transient network blip only costs re-fetching what actually failed instead
+# of the whole dependency tree from scratch.
+RUN --mount=type=cache,target=/root/.yarn/berry/cache --mount=type=cache,target=/root/.cache/prisma \
+    yarn install --frozen-lockfile
 
 COPY . .
 
