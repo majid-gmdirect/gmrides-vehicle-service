@@ -30,13 +30,25 @@ RUN yarn build
 FROM node:20-alpine AS production
 
 ENV NODE_ENV=production
+ENV COREPACK_HOME=/app/.corepack-cache
 
 WORKDIR /app
+
+# Needed so `yarn prisma migrate deploy` (run from deploy.sh) resolves the
+# same Yarn Berry version as the build stage instead of the base image's
+# default Yarn Classic. Prepared here (as root, with network access) so the
+# non-root runtime user below never needs to download Yarn itself.
+RUN corepack enable
+COPY package.json yarn.lock .yarnrc.yml ./
+RUN corepack prepare --activate
 
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/prisma ./prisma
-COPY package.json ./
+
+# Everything above was copied/created as root; hand ownership to the `node`
+# user so `yarn prisma migrate deploy` can write its .yarn/ state directory.
+RUN chown -R node:node /app
 
 USER node
 
