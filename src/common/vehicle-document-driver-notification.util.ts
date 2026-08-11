@@ -11,14 +11,6 @@ const EMAIL_ONLY_CHANNELS = {
   toWhatsapp: false,
 } as const;
 
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
 async function emitEmailNotification(
   notificationClient: ClientProxy,
   logger: Logger,
@@ -62,9 +54,10 @@ export async function tryNotifyDriverVehicleDocumentAccepted(
 ): Promise<void> {
   const label = vehicleDocumentKindLabel(params.targetType);
   const title = `Your ${label} was approved`;
-  const description =
-    `<p>Your ${label} has been reviewed and <strong>approved</strong>.</p>` +
-    `<p>You can sign in to your driver account to view your vehicle documents.</p>`;
+  const description = [
+    `Your ${label} has been reviewed and approved.`,
+    `You can sign in to your driver account to view your vehicle documents.`,
+  ].join('\n');
 
   await emitEmailNotification(notificationClient, logger, {
     title,
@@ -82,21 +75,26 @@ export async function tryNotifyDriverVehicleDocumentRejected(
     driverUserId: string;
     targetType: VehicleDocumentKind;
     rejectedReason?: string | null;
+    driverFirstName?: string | null;
   },
 ): Promise<void> {
   const label = vehicleDocumentKindLabel(params.targetType);
   const title = `Your ${label} was not approved`;
-  const reasonBlock = params.rejectedReason?.trim()
-    ? `<p><strong>Reason:</strong> ${escapeHtml(params.rejectedReason.trim())}</p>`
-    : '';
-  const description =
-    `<p>Your ${label} was not approved.</p>` +
-    reasonBlock +
-    `<p>Please sign in to your driver account, review the feedback, update your vehicle documents, and resubmit if required.</p>`;
+  const name = params.driverFirstName?.trim() || 'Driver';
+  const lines = [
+    `Dear ${name},`,
+    `Your ${label} was not approved.`,
+  ];
+  if (params.rejectedReason?.trim()) {
+    lines.push(`Reason: ${params.rejectedReason.trim()}`);
+  }
+  lines.push(
+    `Please sign in to your driver account, review the feedback, update your vehicle documents, and resubmit if required.`,
+  );
 
   await emitEmailNotification(notificationClient, logger, {
     title,
-    description,
+    description: lines.join('\n'),
     userId: params.driverUserId,
     audience: 'driver',
   });
@@ -111,6 +109,7 @@ export async function tryNotifyDriverVehicleDocumentChangeRequestReviewed(
     targetType: VehicleDocumentKind;
     accepted: boolean;
     rejectedReason?: string | null;
+    driverFirstName?: string | null;
   },
 ): Promise<void> {
   if (params.accepted) {
@@ -119,19 +118,21 @@ export async function tryNotifyDriverVehicleDocumentChangeRequestReviewed(
 
   const label = vehicleDocumentKindLabel(params.targetType);
   const title = `Your ${label} update was not accepted`;
-
-  const reason = params.rejectedReason?.trim();
-  const reasonBlock = reason
-    ? `<p><strong>Reason:</strong> ${escapeHtml(reason)}</p>`
-    : '';
-  const description =
-    `<p>Your requested changes to your ${label} were <strong>not accepted</strong>.</p>` +
-    reasonBlock +
-    `<p>Your current approved document is unchanged. You may submit a new change request if needed.</p>`;
+  const name = params.driverFirstName?.trim() || 'Driver';
+  const lines = [
+    `Dear ${name},`,
+    `Your requested changes to your ${label} were not accepted.`,
+  ];
+  if (params.rejectedReason?.trim()) {
+    lines.push(`Reason: ${params.rejectedReason.trim()}`);
+  }
+  lines.push(
+    `Your current approved document is unchanged. You may submit a new change request if needed.`,
+  );
 
   await emitEmailNotification(notificationClient, logger, {
     title,
-    description,
+    description: lines.join('\n'),
     userId: params.driverUserId,
     audience: 'driver',
   });
@@ -145,9 +146,10 @@ export async function tryNotifyDriverVehicleApproved(
 ): Promise<void> {
   await emitEmailNotification(notificationClient, logger, {
     title: 'Your vehicle was approved',
-    description:
-      '<p>Your vehicle profile has been reviewed and <strong>approved</strong>.</p>' +
-      '<p>To change vehicle details after approval, submit a change request from your driver account.</p>',
+    description: [
+      'Your vehicle profile has been reviewed and approved.',
+      'To change vehicle details after approval, submit a change request from your driver account.',
+    ].join('\n'),
     userId: params.driverUserId,
     audience: 'driver',
   });
@@ -161,6 +163,7 @@ export async function tryNotifyDriverVehicleChangeRequestReviewed(
     driverUserId: string;
     accepted: boolean;
     rejectedReason?: string | null;
+    driverFirstName?: string | null;
   },
 ): Promise<void> {
   if (params.accepted) {
@@ -168,19 +171,21 @@ export async function tryNotifyDriverVehicleChangeRequestReviewed(
   }
 
   const title = 'Your vehicle update was not accepted';
-
-  const reason = params.rejectedReason?.trim();
-  const reasonBlock = reason
-    ? `<p><strong>Reason:</strong> ${escapeHtml(reason)}</p>`
-    : '';
-  const description =
-    '<p>Your requested changes to your vehicle profile were <strong>not accepted</strong>.</p>' +
-    reasonBlock +
-    '<p>Your current approved vehicle details are unchanged. You may submit a new change request if needed.</p>';
+  const name = params.driverFirstName?.trim() || 'Driver';
+  const lines = [
+    `Dear ${name},`,
+    'Your requested changes to your vehicle profile were not accepted.',
+  ];
+  if (params.rejectedReason?.trim()) {
+    lines.push(`Reason: ${params.rejectedReason.trim()}`);
+  }
+  lines.push(
+    'Your current approved vehicle details are unchanged. You may submit a new change request if needed.',
+  );
 
   await emitEmailNotification(notificationClient, logger, {
     title,
-    description,
+    description: lines.join('\n'),
     userId: params.driverUserId,
     audience: 'driver',
   });

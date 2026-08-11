@@ -59,9 +59,10 @@ export async function notifyAdminsVehicleChangeRequestSubmitted(
   if (admins.length === 0) return;
 
   const description =
-    `<p>A driver submitted a change request for their <strong>vehicle profile</strong>.</p>` +
-    `<p>Driver ID: ${params.driverUserId}<br/>Vehicle ID: ${params.vehicleId}</p>` +
-    `<p>Please review it in the admin dashboard.</p>`;
+    `A driver submitted a change request for their vehicle profile.\n` +
+    `Driver ID: ${params.driverUserId}\n` +
+    `Vehicle ID: ${params.vehicleId}\n` +
+    `Please review it in the admin dashboard.`;
 
   for (const adminId of admins) {
     try {

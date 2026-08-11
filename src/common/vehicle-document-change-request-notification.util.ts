@@ -72,9 +72,10 @@ export async function notifyAdminsVehicleDocumentChangeRequestSubmitted(
 
   const label = vehicleDocumentKindLabel(params.targetType);
   const description =
-    `<p>A driver submitted a change request for their <strong>${label}</strong>.</p>` +
-    `<p>Driver ID: ${params.driverUserId}<br/>Vehicle ID: ${params.vehicleId}</p>` +
-    `<p>Please review it in the admin dashboard.</p>`;
+    `A driver submitted a change request for their ${label}.\n` +
+    `Driver ID: ${params.driverUserId}\n` +
+    `Vehicle ID: ${params.vehicleId}\n` +
+    `Please review it in the admin dashboard.`;
 
   for (const adminId of admins) {
     try {
