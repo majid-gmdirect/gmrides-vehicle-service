@@ -190,3 +190,46 @@ export async function tryNotifyDriverVehicleChangeRequestReviewed(
     audience: 'driver',
   });
 }
+
+/**
+ * Email driver when admin requests optional vehicle documents
+ * (permission letter + vehicle schedule).
+ */
+export async function tryNotifyDriverOptionalDocumentsRequested(
+  notificationClient: ClientProxy,
+  logger: Logger,
+  params: {
+    driverUserId: string;
+    driverFirstName?: string | null;
+    make?: string | null;
+    model?: string | null;
+    plateNumber?: string | null;
+  },
+): Promise<void> {
+  const name = params.driverFirstName?.trim() || 'Driver';
+  const vehicleLabel = [params.make?.trim(), params.model?.trim()]
+    .filter(Boolean)
+    .join(' ');
+  const plate = params.plateNumber?.trim();
+  const vehicleBits = [
+    vehicleLabel || null,
+    plate ? `plate ${plate}` : null,
+  ].filter(Boolean);
+  const vehiclePhrase = vehicleBits.length
+    ? ` for your vehicle (${vehicleBits.join(', ')})`
+    : ' for your vehicle';
+
+  const title = 'Additional vehicle documents required';
+  const description = [
+    `Dear ${name},`,
+    `We need additional documents${vehiclePhrase}.`,
+    'Please upload a permission letter and vehicle schedule in your driver account so we can continue reviewing your vehicle.',
+  ].join('\n');
+
+  await emitEmailNotification(notificationClient, logger, {
+    title,
+    description,
+    userId: params.driverUserId,
+    audience: 'driver',
+  });
+}

@@ -42,6 +42,7 @@ import {
   UpdateLogBookV5Dto,
 } from './dto';
 import {
+  tryNotifyDriverOptionalDocumentsRequested,
   tryNotifyDriverVehicleDocumentRejected,
 } from '../common/vehicle-document-driver-notification.util';
 import { applyDriverResubmissionReviewReset } from '../common/reset-document-on-driver-resubmission.util';
@@ -138,6 +139,51 @@ export class VehicleService {
         },
       );
     }
+  }
+
+  /** Best-effort email when admin first requests optional vehicle documents. */
+  private notifyOptionalDocumentsRequestedIfNeeded(
+    previousRequested: boolean,
+    vehicle: {
+      driverId: string;
+      make: string;
+      model: string;
+      plateNumber: string;
+      requiestOptionalDocuments: boolean;
+    },
+  ): void {
+    if (previousRequested || !vehicle.requiestOptionalDocuments) {
+      return;
+    }
+
+    void (async () => {
+      let driverFirstName: string | null = null;
+      try {
+        const driverMap = await this.fetchDriversByIds([vehicle.driverId]);
+        const driver = driverMap.get(vehicle.driverId);
+        driverFirstName =
+          (typeof driver?.firstName === 'string' ? driver.firstName : null) ??
+          null;
+      } catch (err) {
+        this.logger.warn(
+          `Could not resolve driver name for optional-docs email (driver ${vehicle.driverId}): ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
+
+      await tryNotifyDriverOptionalDocumentsRequested(
+        this.notificationClient,
+        this.logger,
+        {
+          driverUserId: vehicle.driverId,
+          driverFirstName,
+          make: vehicle.make,
+          model: vehicle.model,
+          plateNumber: vehicle.plateNumber,
+        },
+      );
+    })();
   }
 
   private assertDriverAccess(driverId: string, requester: Requester) {
@@ -573,6 +619,13 @@ export class VehicleService {
       data,
     });
 
+    if (dto.requiestOptionalDocuments !== undefined) {
+      this.notifyOptionalDocumentsRequestedIfNeeded(
+        existing.requiestOptionalDocuments,
+        vehicle,
+      );
+    }
+
     const [mapped] = await attachPendingToVehicleRows(this.prisma, [vehicle]);
 
     return formatResponse({
@@ -830,12 +883,17 @@ export class VehicleService {
     vehicleId: string,
     dto: UpdateVehicleRequestOptionalDocumentsDto,
   ) {
-    await this.getVehicleOrThrow(vehicleId);
+    const existing = await this.getVehicleOrThrow(vehicleId);
 
     const vehicle = await this.prisma.vehicle.update({
       where: { id: vehicleId },
       data: { requiestOptionalDocuments: dto.requiestOptionalDocuments },
     });
+
+    this.notifyOptionalDocumentsRequestedIfNeeded(
+      existing.requiestOptionalDocuments,
+      vehicle,
+    );
 
     return formatResponse({
       success: true,
