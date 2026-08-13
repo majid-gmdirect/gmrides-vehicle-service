@@ -1690,6 +1690,49 @@ export class VehicleService {
     });
   }
 
+  /**
+   * Collection-level upsert for clients that PATCH `…/log-book-v5` without an ID
+   * (admin panel "Save vehicle & log book"). Prefer the newest row for the vehicle.
+   */
+  async upsertLogBookV5(
+    driverId: string,
+    vehicleId: string,
+    dto: UpdateLogBookV5Dto,
+    requester: Requester,
+  ) {
+    this.assertDriverAccess(driverId, requester);
+    await this.assertDriverExistsAndIsDriver(driverId);
+    await this.getVehicleForDriverOrThrow(driverId, vehicleId);
+
+    const existing = await this.prisma.logBookV5.findFirst({
+      where: { vehicleId },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      if (!dto.document) {
+        throw new BadRequestException(
+          'document is required when no log book V5 exists for this vehicle',
+        );
+      }
+      return this.createLogBookV5(
+        driverId,
+        vehicleId,
+        { document: dto.document },
+        requester,
+      );
+    }
+
+    return this.updateLogBookV5(
+      driverId,
+      vehicleId,
+      existing.id,
+      dto,
+      requester,
+    );
+  }
+
   async updateLogBookV5(
     driverId: string,
     vehicleId: string,

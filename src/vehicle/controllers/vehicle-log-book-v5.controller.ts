@@ -7,6 +7,7 @@ import {
   DeleteLogBookV5Swagger,
   GetLogBookV5Swagger,
   ListLogBookV5Swagger,
+  UpsertLogBookV5Swagger,
   UpdateLogBookV5Swagger,
 } from '../decorators/vehicle-swagger.decorator';
 import { VehicleService } from '../vehicle.service';
@@ -54,6 +55,27 @@ export class VehicleLogBookV5Controller {
     @Body() dto: CreateLogBookV5Dto,
   ) {
     return this.vehicleService.createLogBookV5(driverId, vehicleId, dto, req.user);
+  }
+
+  /**
+   * Collection-level PATCH used by the admin panel ("Save vehicle & log book").
+   * Updates the newest log book for the vehicle, or creates one when none exists.
+   */
+  @Patch('driver/:driverId/vehicles/:vehicleId/log-book-v5')
+  @Roles('DRIVER', 'ADMIN')
+  @UpsertLogBookV5Swagger()
+  upsert(
+    @Param('driverId') driverId: string,
+    @Param('vehicleId') vehicleId: string,
+    @Req() req: { user: { userId: string; role?: string } },
+    @Body() dto: UpdateLogBookV5Dto,
+  ) {
+    return this.vehicleService.upsertLogBookV5(
+      driverId,
+      vehicleId,
+      dto,
+      req.user,
+    );
   }
 
   @Patch('driver/:driverId/vehicles/:vehicleId/log-book-v5/:logBookV5Id')

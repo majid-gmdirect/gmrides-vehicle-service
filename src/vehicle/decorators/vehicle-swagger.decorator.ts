@@ -656,6 +656,26 @@ export function CreateLogBookV5Swagger(): MethodDecorator {
   );
 }
 
+export function UpsertLogBookV5Swagger(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({
+      summary: 'Upsert the current log book V5 document (DRIVER/ADMIN)',
+      description:
+        'Collection-level PATCH for clients that do not send a log book ID (e.g. admin panel). Updates the newest log book for the vehicle when one exists; otherwise creates a new record (`document` required). Same mutation / re-review rules as the ID-scoped update endpoint.',
+    }),
+    ApiParam({ name: 'driverId', type: String, description: 'Driver user ID' }),
+    ApiParam({ name: 'vehicleId', type: String, description: 'Vehicle ID' }),
+    ApiBody({ type: UpdateLogBookV5Dto }),
+    ApiOkResponse({
+      description: 'Log book V5 upserted successfully',
+      type: LogBookV5SuccessResponseDto,
+    }),
+    ApiNotFoundResponse({ description: 'Vehicle not found' }),
+    ApiForbiddenResponse({ description: 'Access denied' }),
+  );
+}
+
 export function UpdateLogBookV5Swagger(): MethodDecorator {
   return applyDecorators(
     ApiBearerAuth(),
