@@ -8,6 +8,14 @@ export class CreateVehiclePcoDocumentDto {
   @IsString()
   badgeNumber?: string;
 
+  @ApiPropertyOptional({
+    description: 'PCO licence number',
+    example: 'LN-987654',
+  })
+  @IsOptional()
+  @IsString()
+  licenseNumber?: string;
+
   @ApiPropertyOptional({ description: 'Issue date', example: '2026-01-01' })
   @IsOptional()
   @IsDateString()

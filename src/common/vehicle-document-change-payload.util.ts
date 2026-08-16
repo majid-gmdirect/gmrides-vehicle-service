@@ -54,6 +54,7 @@ export type StoredInsuranceChangePayload = InsuranceChangePayload & {
 
 export type PcoDocumentChangePayload = {
   badgeNumber: string | null;
+  licenseNumber: string | null;
   issueDate: string | null;
   expiryDate: string | null;
   document: Record<string, unknown> | null;
@@ -61,6 +62,7 @@ export type PcoDocumentChangePayload = {
 
 export type PcoDocumentChangeField =
   | 'badgeNumber'
+  | 'licenseNumber'
   | 'issueDate'
   | 'expiryDate'
   | 'document';
@@ -444,6 +446,7 @@ export function buildPcoDocumentChangePayload(
   existing: VehiclePcoDocument,
   dto: Partial<{
     badgeNumber?: string;
+    licenseNumber?: string;
     issueDate?: string;
     expiryDate?: string;
     document?: Record<string, unknown>;
@@ -454,6 +457,10 @@ export function buildPcoDocumentChangePayload(
       dto.badgeNumber !== undefined
         ? dto.badgeNumber ?? null
         : existing.badgeNumber,
+    licenseNumber:
+      dto.licenseNumber !== undefined
+        ? dto.licenseNumber ?? null
+        : existing.licenseNumber,
     issueDate:
       dto.issueDate !== undefined
         ? dto.issueDate ?? null
@@ -473,6 +480,7 @@ export function pcoDocumentChangePayloadDiffers(
   const current = buildPcoDocumentChangePayload(existing, {});
   return (
     current.badgeNumber !== payload.badgeNumber ||
+    current.licenseNumber !== payload.licenseNumber ||
     current.issueDate !== payload.issueDate ||
     current.expiryDate !== payload.expiryDate ||
     stableJson(current.document) !== stableJson(payload.document)
@@ -484,6 +492,7 @@ export function pcoDocumentPayloadToPrismaUpdate(
 ): Prisma.VehiclePcoDocumentUpdateInput {
   const data: Prisma.VehiclePcoDocumentUpdateInput = {
     badgeNumber: payload.badgeNumber,
+    licenseNumber: payload.licenseNumber,
     document: payload.document as Prisma.InputJsonValue,
   };
   data.issueDate =
@@ -497,6 +506,7 @@ export function computePcoDocumentChangedFields(
   existing: VehiclePcoDocument,
   dto: Partial<{
     badgeNumber?: string;
+    licenseNumber?: string;
     issueDate?: string;
     expiryDate?: string;
     document?: Record<string, unknown>;
@@ -508,6 +518,10 @@ export function computePcoDocumentChangedFields(
   if (dto.badgeNumber !== undefined) {
     const next = dto.badgeNumber ?? null;
     if (next !== current.badgeNumber) changed.push('badgeNumber');
+  }
+  if (dto.licenseNumber !== undefined) {
+    const next = dto.licenseNumber ?? null;
+    if (next !== current.licenseNumber) changed.push('licenseNumber');
   }
   if (dto.issueDate !== undefined) {
     const next = dto.issueDate ?? null;
@@ -533,6 +547,7 @@ export function buildStoredPcoDocumentChangePayload(
   existing: VehiclePcoDocument,
   dto: Partial<{
     badgeNumber?: string;
+    licenseNumber?: string;
     issueDate?: string;
     expiryDate?: string;
     document?: Record<string, unknown>;
@@ -546,6 +561,7 @@ export function buildStoredPcoDocumentChangePayload(
 
 const PCO_DOCUMENT_CHANGE_FIELDS = [
   'badgeNumber',
+  'licenseNumber',
   'issueDate',
   'expiryDate',
   'document',
@@ -562,6 +578,7 @@ export function parsePcoDocumentStoredPayload(raw: unknown): {
   return {
     data: {
       badgeNumber: (rest.badgeNumber as string | null | undefined) ?? null,
+      licenseNumber: (rest.licenseNumber as string | null | undefined) ?? null,
       issueDate: (rest.issueDate as string | null | undefined) ?? null,
       expiryDate: (rest.expiryDate as string | null | undefined) ?? null,
       document: (rest.document as Record<string, unknown> | null | undefined) ?? null,
@@ -579,6 +596,7 @@ export function pcoDocumentPayloadToPartialPrismaUpdate(
 
   for (const field of changedFields) {
     if (field === 'badgeNumber') data.badgeNumber = full.badgeNumber;
+    if (field === 'licenseNumber') data.licenseNumber = full.licenseNumber;
     if (field === 'issueDate') data.issueDate = full.issueDate;
     if (field === 'expiryDate') data.expiryDate = full.expiryDate;
     if (field === 'document') data.document = full.document;
@@ -717,6 +735,7 @@ export function mapChangePayloadForResponse(
       const p = parsed.data;
       const response: Record<string, unknown> = {
         badgeNumber: p.badgeNumber,
+        licenseNumber: p.licenseNumber,
         issueDate: p.issueDate,
         expiryDate: p.expiryDate,
         document: pickPublicMediaRef(p.document),

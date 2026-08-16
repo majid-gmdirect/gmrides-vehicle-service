@@ -154,6 +154,7 @@ model VehiclePcoDocument {
   vehicleId      String
   badgeNumber    String?
   issueDate      DateTime?
+  licenseNumber  String?
   expiryDate     DateTime?
   document       Json? // PCO badge scan or registration document
   status         DocumentStatus @default(PENDING)

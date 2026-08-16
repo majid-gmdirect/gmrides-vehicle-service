@@ -1491,6 +1491,9 @@ export class VehicleService {
         vehicleId,
         ...review,
         ...(rest.badgeNumber !== undefined && { badgeNumber: rest.badgeNumber }),
+        ...(rest.licenseNumber !== undefined && {
+          licenseNumber: rest.licenseNumber,
+        }),
         ...(rest.issueDate !== undefined && {
           issueDate: toPrismaDateTime(rest.issueDate),
         }),
@@ -1542,6 +1545,9 @@ export class VehicleService {
 
     const data: Prisma.VehiclePcoDocumentUpdateInput = {};
     if (rest.badgeNumber !== undefined) data.badgeNumber = rest.badgeNumber;
+    if (rest.licenseNumber !== undefined) {
+      data.licenseNumber = rest.licenseNumber;
+    }
     if (rest.issueDate !== undefined) {
       data.issueDate = toPrismaDateTime(rest.issueDate);
     }
@@ -2357,6 +2363,7 @@ export class VehicleService {
             status: true,
             rejectedReason: true,
             badgeNumber: true,
+            licenseNumber: true,
             updatedAt: true,
           },
         },
@@ -2408,7 +2415,9 @@ export class VehicleService {
         mapDoc(i, i.inspectionType ?? null),
       ),
       insurances: v.insurances.map((i) => mapDoc(i, i.provider ?? null)),
-      pcoDocs: v.pcoDocs.map((d) => mapDoc(d, d.badgeNumber ?? null)),
+      pcoDocs: v.pcoDocs.map((d) =>
+        mapDoc(d, d.badgeNumber ?? d.licenseNumber ?? null),
+      ),
       permissionLetters: v.requiestOptionalDocuments
         ? v.permissionLetters.map((p) => mapDoc(p))
         : [],
@@ -2474,6 +2483,7 @@ export class VehicleService {
             id: true,
             status: true,
             badgeNumber: true,
+            licenseNumber: true,
             expiryDate: true,
           },
         },
@@ -2548,7 +2558,9 @@ export class VehicleService {
           documentId: pcoDoc.id,
           label: pcoDoc.badgeNumber
             ? `Vehicle PCO (${pcoDoc.badgeNumber})`
-            : 'Vehicle PCO',
+            : pcoDoc.licenseNumber
+              ? `Vehicle PCO (${pcoDoc.licenseNumber})`
+              : 'Vehicle PCO',
           expiryDate: expiry.toISOString(),
           daysUntilExpiry: daysUntilExpiry(expiry, reference),
           reviewStatus: 'ACCEPTED',
