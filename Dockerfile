@@ -42,13 +42,14 @@ RUN corepack enable
 COPY package.json yarn.lock .yarnrc.yml ./
 RUN corepack prepare --activate
 
-COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/dist ./dist
-COPY --from=build /app/prisma ./prisma
+# --chown sets ownership during the copy itself; a separate `chown -R /app`
+# here would force BuildKit to duplicate all of node_modules into a new
+# layer (copy-up on ownership change), roughly doubling image push time.
+COPY --chown=node:node --from=build /app/node_modules ./node_modules
+COPY --chown=node:node --from=build /app/dist ./dist
+COPY --chown=node:node --from=build /app/prisma ./prisma
 
-# Everything above was copied/created as root; hand ownership to the `node`
-# user so `yarn prisma migrate deploy` can write its .yarn/ state directory.
-RUN chown -R node:node /app
+RUN chown node:node /app && chown -R node:node /app/.corepack-cache package.json yarn.lock .yarnrc.yml
 
 USER node
 
