@@ -2415,9 +2415,11 @@ export class VehicleService {
         mapDoc(i, i.inspectionType ?? null),
       ),
       insurances: v.insurances.map((i) => mapDoc(i, i.provider ?? null)),
-      pcoDocs: v.pcoDocs.map((d) =>
-        mapDoc(d, d.badgeNumber ?? d.licenseNumber ?? null),
-      ),
+      pcoDocs: v.pcoDocs.map((d) => ({
+        ...mapDoc(d, d.badgeNumber ?? d.licenseNumber ?? null),
+        licenseNumber: d.licenseNumber ?? null,
+        badgeNumber: d.badgeNumber ?? null,
+      })),
       permissionLetters: v.requiestOptionalDocuments
         ? v.permissionLetters.map((p) => mapDoc(p))
         : [],
