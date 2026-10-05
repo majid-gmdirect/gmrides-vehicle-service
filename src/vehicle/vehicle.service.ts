@@ -2330,6 +2330,8 @@ export class VehicleService {
         make: true,
         model: true,
         isApproved: true,
+        isActive: true,
+        vehicleType: true,
         requiestOptionalDocuments: true,
         logBookV5: {
           select: {
@@ -2409,6 +2411,8 @@ export class VehicleService {
       make: v.make,
       model: v.model,
       isApproved: v.isApproved,
+      isActive: v.isActive,
+      vehicleType: v.vehicleType,
       requiestOptionalDocuments: v.requiestOptionalDocuments,
       logBookV5: v.logBookV5.map((d) => mapDoc(d)),
       inspections: v.inspections.map((i) =>
