@@ -25,10 +25,12 @@ import { AdminVehicleDocumentChangeRequestController } from './document-change-r
 import { VehicleChangeRequestService } from './vehicle-change-request/vehicle-change-request.service';
 import { VehicleChangeRequestController } from './vehicle-change-request/vehicle-change-request.controller';
 import { AdminVehicleChangeRequestController } from './vehicle-change-request/admin-vehicle-change-request.controller';
+import { UploadOwnershipModule } from '../common/upload-ownership.module';
 
 @Module({
   imports: [
     HttpModule,
+    UploadOwnershipModule,
     ClientsModule.register([
       {
         name: 'NOTIFICATION_SERVICE',

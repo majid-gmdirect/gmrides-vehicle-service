@@ -7,6 +7,14 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { jwtConstants } from './constants';
 import { RedisService } from '../redis/redis.service';
 
+interface AuthTokenPayload {
+  sub?: string;
+  email?: string;
+  role?: string;
+  jti?: string;
+  typ?: string;
+}
+
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(private readonly redis: RedisService) {
@@ -18,8 +26,17 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: any) {
-    console.log('Raw JWT Payload:', payload);
+  /**
+   * auth-service signs access, refresh (30 days) and tracking tokens with
+   * the same key and the same `sub`/`role`, so the signature alone proves
+   * nothing about what a token is for. Only an access token (`typ:
+   * 'access'`, with a `jti`) whose session is still live gets in. Same
+   * checks as auth-service's own JwtStrategy.
+   */
+  async validate(payload: AuthTokenPayload) {
+    if (payload?.typ !== 'access' || !payload?.jti) {
+      throw new UnauthorizedException('Invalid token type');
+    }
 
     // Check if user is blocked
     const blocked = await this.redis.get(`blocked:${payload.sub}`);

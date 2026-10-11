@@ -41,6 +41,7 @@ import {
 import { notifyAdminsVehicleDocumentChangeRequestSubmitted } from '../../common/vehicle-document-change-request-notification.util';
 import { tryNotifyDriverVehicleDocumentChangeRequestReviewed } from '../../common/vehicle-document-driver-notification.util';
 import { lastValueFrom } from 'rxjs';
+import { UploadOwnershipService } from '../../common/upload-ownership.service';
 import {
   AdminListAllVehicleDocumentChangeRequestsDto,
   AdminQueryVehicleDocumentChangeRequestsDto,
@@ -62,7 +63,32 @@ export class VehicleDocumentChangeRequestService {
     private readonly httpService: HttpService,
     @Inject('NOTIFICATION_SERVICE')
     private readonly notificationClient: ClientProxy,
+    private readonly uploadOwnership: UploadOwnershipService,
   ) {}
+
+  /**
+   * The driver's proposed document, checked with upload-service and
+   * rebuilt from its answer before it goes into the change request (an
+   * admin applies the stored payload as is on approval).
+   */
+  private async resolveProposedDocument(
+    field: string,
+    incoming: Record<string, unknown> | undefined,
+    driverId: string,
+    requester: Requester,
+    existing: unknown,
+  ): Promise<Record<string, unknown> | undefined> {
+    const resolved = await this.uploadOwnership.resolveFileRef({
+      field,
+      incoming,
+      ownerUserId: driverId,
+      requester,
+      existing,
+    });
+    // `null` (clear the document) passes through as before; the payload
+    // builders treat it as a change to "no document".
+    return resolved as Record<string, unknown> | undefined;
+  }
 
   private assertDriverAccess(driverId: string, requester: Requester): void {
     const isOwner = driverId === requester.userId;
@@ -493,6 +519,13 @@ export class VehicleDocumentChangeRequestService {
     );
 
     const { driver_note, ...fields } = dto;
+    fields.document = await this.resolveProposedDocument(
+      'vehicle_inspection',
+      fields.document,
+      driverId,
+      requester,
+      existing.document,
+    );
     const payload = buildStoredInspectionChangePayload(existing, fields);
     if (payload.changedFields.length === 0) {
       throw new BadRequestException('No changes detected in the change request');
@@ -534,6 +567,13 @@ export class VehicleDocumentChangeRequestService {
     );
 
     const { driver_note, ...fields } = dto;
+    fields.document = await this.resolveProposedDocument(
+      'vehicle_insurance',
+      fields.document,
+      driverId,
+      requester,
+      existing.document,
+    );
     const payload = buildStoredInsuranceChangePayload(existing, fields);
     if (payload.changedFields.length === 0) {
       throw new BadRequestException('No changes detected in the change request');
@@ -575,6 +615,13 @@ export class VehicleDocumentChangeRequestService {
     );
 
     const { driver_note, ...fields } = dto;
+    fields.document = await this.resolveProposedDocument(
+      'vehicle_pco_document',
+      fields.document,
+      driverId,
+      requester,
+      existing.document,
+    );
     const payload = buildStoredPcoDocumentChangePayload(existing, fields);
     if (payload.changedFields.length === 0) {
       throw new BadRequestException('No changes detected in the change request');
@@ -615,7 +662,16 @@ export class VehicleDocumentChangeRequestService {
       vehicleId,
     );
 
-    const payload = buildStoredDocumentOnlyChangePayload(existing, dto);
+    const document = await this.resolveProposedDocument(
+      'permission_letter',
+      dto.document,
+      driverId,
+      requester,
+      existing.document,
+    );
+    const payload = buildStoredDocumentOnlyChangePayload(existing, {
+      document,
+    });
     if (payload.changedFields.length === 0) {
       throw new BadRequestException('No changes detected in the change request');
     }
@@ -655,7 +711,16 @@ export class VehicleDocumentChangeRequestService {
       vehicleId,
     );
 
-    const payload = buildStoredDocumentOnlyChangePayload(existing, dto);
+    const document = await this.resolveProposedDocument(
+      'vehicle_schedule',
+      dto.document,
+      driverId,
+      requester,
+      existing.document,
+    );
+    const payload = buildStoredDocumentOnlyChangePayload(existing, {
+      document,
+    });
     if (payload.changedFields.length === 0) {
       throw new BadRequestException('No changes detected in the change request');
     }
@@ -695,7 +760,16 @@ export class VehicleDocumentChangeRequestService {
       vehicleId,
     );
 
-    const payload = buildStoredDocumentOnlyChangePayload(existing, dto);
+    const document = await this.resolveProposedDocument(
+      'log_book_v5',
+      dto.document,
+      driverId,
+      requester,
+      existing.document,
+    );
+    const payload = buildStoredDocumentOnlyChangePayload(existing, {
+      document,
+    });
     if (payload.changedFields.length === 0) {
       throw new BadRequestException('No changes detected in the change request');
     }

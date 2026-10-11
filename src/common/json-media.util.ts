@@ -1,6 +1,13 @@
-export type PublicMediaRef = { id?: string; url: string };
+/**
+ * A stored file reference: public `{ id?, url }`, or private
+ * `{ id, isPrivate: true }` with no url (read through upload-service's
+ * `GET /api/uploads/:id/private-url`).
+ */
+export type MediaRef =
+  | { id?: string; url: string }
+  | { id: string; isPrivate: true };
 
-export function pickPublicMediaRef(value: unknown): PublicMediaRef | null {
+export function pickMediaRef(value: unknown): MediaRef | null {
   if (value == null || value === '') return null;
   if (typeof value === 'string') {
     const t = value.trim();
@@ -8,12 +15,15 @@ export function pickPublicMediaRef(value: unknown): PublicMediaRef | null {
   }
   if (typeof value === 'object') {
     const o = value as Record<string, unknown>;
+    const id = typeof o.id === 'string' && o.id.trim() ? o.id.trim() : null;
     const url = o.url;
     if (typeof url === 'string' && url.length > 0) {
-      const id = o.id;
-      const out: PublicMediaRef = { url };
-      if (typeof id === 'string' && id.trim()) out.id = id.trim();
+      const out: { id?: string; url: string } = { url };
+      if (id) out.id = id;
       return out;
+    }
+    if (o.isPrivate === true && id) {
+      return { id, isPrivate: true };
     }
   }
   return null;

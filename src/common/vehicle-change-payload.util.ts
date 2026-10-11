@@ -1,5 +1,5 @@
 import { Prisma, Vehicle, VehicleType } from '@prisma/client';
-import { pickPublicMediaRef } from './json-media.util';
+import { pickMediaRef } from './json-media.util';
 
 export type VehicleChangePayload = {
   make: string;
@@ -32,11 +32,8 @@ export type VehicleChangeInput = {
 };
 
 function mediaFromJson(value: unknown): Record<string, unknown> | null {
-  const ref = pickPublicMediaRef(value);
-  if (!ref) return null;
-  const out: Record<string, unknown> = { url: ref.url };
-  if (ref.id) out.id = ref.id;
-  return out;
+  const ref = pickMediaRef(value);
+  return ref ? { ...ref } : null;
 }
 
 function mediaFromDto(
@@ -230,8 +227,8 @@ export function mapVehicleChangePayloadForResponse(
     plateNumber: payload.plateNumber,
     vehicleType: payload.vehicleType,
     isActive: payload.isActive,
-    permission_letter: pickPublicMediaRef(payload.permission_letter),
-    vehicle_schedule: pickPublicMediaRef(payload.vehicle_schedule),
+    permission_letter: pickMediaRef(payload.permission_letter),
+    vehicle_schedule: pickMediaRef(payload.vehicle_schedule),
   };
   if ('changedFields' in payload && payload.changedFields?.length) {
     response.changedFields = payload.changedFields;

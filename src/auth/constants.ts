@@ -4,9 +4,6 @@ import * as path from 'path';
 
 const publicKeyPath = path.join(process.cwd(), 'keys/public.pem');
 
-// Debugging
-console.log('Public key path:', publicKeyPath);
-
 if (!fs.existsSync(publicKeyPath)) {
   throw new Error(
     `Missing public key at: ${publicKeyPath}\nCurrent directory: ${process.cwd()}`,
