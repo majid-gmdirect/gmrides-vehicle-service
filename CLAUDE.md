@@ -38,6 +38,14 @@ yarn test:e2e            # jest --config ./test/jest-e2e.json
 Prisma (not in package.json scripts, invoked directly): `yarn prisma generate`,
 `yarn prisma migrate deploy` (used by `deploy.sh`).
 
+One-off (see "Uploaded files" below), on the server after upload-service has
+`move-to-private-internal`:
+
+```bash
+docker exec vehicle-service node dist/scripts/move-vehicle-documents-to-private.js          # dry run
+docker exec vehicle-service node dist/scripts/move-vehicle-documents-to-private.js --apply  # do it
+```
+
 ## Tech Stack
 
 - Node 20 (alpine, per Dockerfile), Yarn Berry `4.13.0` (`packageManager` field;
@@ -58,7 +66,11 @@ Prisma (not in package.json scripts, invoked directly): `yarn prisma generate`,
 src/
   auth/           JWT strategy/guards, roles guard, internal-API guard, RSA public key loading
   common/          Cross-cutting utils: document-expiry/status helpers, notification senders,
-                    vehicle/document "change request" payload + mutation policy helpers
+                    vehicle/document "change request" payload + mutation policy helpers,
+                    upload-ownership.service.ts (upload-service lookups),
+                    trust-proxy.ts (rate-limit client address)
+  scripts/         One-off CLI scripts, built to dist/scripts/ (kept under src/ so
+                    dist/main.js stays where the Dockerfile expects it)
   prisma/          PrismaService + module (DB access)
   redis/           RedisService + module (session/blocklist store)
   vehicle/
@@ -106,7 +118,10 @@ Global route prefix: `api/vehicles` (set in `main.ts`).
 
 All document models share the same shape: `status` (`ACCEPTED`/`REJECTED`/
 `PENDING`), `rejectedReason`, and a `document` JSON blob (file ref, not raw
-bytes).
+bytes). A file ref is `{ id, url }` for a file in upload-service's public
+bucket, or `{ id, isPrivate: true }` (no url) for one in the private bucket.
+Older rows may hold a bare `{ url }`. `VehicleImage.image` and
+`Vehicle.permission_letter` / `vehicle_schedule` hold the same shape.
 
 ## Auth Approach
 
@@ -114,10 +129,11 @@ bytes).
   `keys/public.pem` at process start (`src/auth/constants.ts` — throws at
   boot if the file is missing). Matches root convention: auth-service issues,
   this service only verifies (no private key present).
-- `JwtStrategy` (`passport-jwt`) additionally checks Redis on every request:
-  `blocked:{sub}` (user blocklist) and `session:{jti}` (session must still
-  exist) — so revocation is enforced via a shared Redis instance, not just
-  token expiry.
+- `JwtStrategy` (`passport-jwt`) first accepts only `typ: 'access'` with a
+  `jti` (since 2026-10-11: auth-service signs refresh and tracking tokens with
+  the same key), then checks Redis on every request: `blocked:{sub}` (user
+  blocklist) and `session:{jti}` (session must still exist) — so revocation is
+  enforced via a shared Redis instance, not just token expiry.
 - Global guard chain (`app.module.ts`, `APP_GUARD` order): `JwtAuthGuard` →
   `RolesGuard` → `ThrottlerGuard`. Route-level `@Roles('ADMIN')` etc. drives
   `RolesGuard`; `@Public()` skips auth entirely.
@@ -131,6 +147,59 @@ bytes).
   `@InternalRoute()` (`Public()` + `InternalApiGuard`), which requires
   `Authorization: Bearer <INTERNAL_API_KEY>` — independent of the JWT/gateway
   flows above.
+
+## Rate Limiting
+
+Global `ThrottlerGuard`, 100 requests a minute, keyed on `req.ip`. Since
+2026-10-11 `main.ts` sets Express `trust proxy` from
+`src/common/trust-proxy.ts` (copied from location-service): loopback,
+link-local and private hops, plus the optional comma-separated
+`TRUSTED_PROXY_IPS`. So `req.ip` is the client nginx forwards, and a forged
+`X-Forwarded-For` can't choose the bucket. Before that every client shared
+one bucket (the Docker gateway address).
+
+## Uploaded files
+
+Clients upload to upload-service (`POST /api/uploads`, multipart `file`, plus
+an optional `field` naming the document type, which sends compliance
+documents to the private bucket), then send the reference here.
+
+**Ownership check (since 2026-10-11).** `UploadOwnershipService.resolveFileRef`
+runs before any new file reference is stored: vehicle create/update
+(`permission_letter`, `vehicle_schedule`), photos, inspections, insurances,
+PCO documents, log books, permission letters, schedules, and the driver's
+document and vehicle change requests (so the payload an admin approves is
+already checked).
+
+- It calls upload-service's `GET /api/uploads/lookup-internal/:id` over
+  `BASE_API_URL` with `INTERNAL_API_KEY`.
+- A driver may store only uploads whose `uploaderId` is the driver (403). An
+  admin may store any upload that exists. Unknown id: 400.
+- The stored ref is rebuilt from the lookup: `{ id, url }` with
+  upload-service's url, or `{ id, isPrivate: true }`. The client's url is
+  never stored. (While upload-service's lookup has no `url` field yet, a
+  public file keeps the client's url, as before.)
+- It fails closed: upload-service down, or `BASE_API_URL` / `INTERNAL_API_KEY`
+  unset, gives 503 and nothing is stored.
+- An unchanged ref (same id as stored, or same url for an old ref with no id)
+  is kept as stored, without a lookup. A new ref with no id is refused (400).
+- `pickMediaRef` (`common/json-media.util.ts`) keeps private refs; the log
+  book and vehicle file DTOs accept `{ id }` with no `url`, and `isPrivate`.
+
+**Moving existing documents to the private bucket.**
+`src/scripts/move-vehicle-documents-to-private.ts` (commands above) finds
+every compliance ref with a public url, calls upload-service's
+`POST /api/uploads/move-to-private-internal/:id` with the document type as
+`{ field }`, and rewrites each ref to that upload to `{ id, isPrivate: true }`.
+
+- It covers the six document tables, `Vehicle.permission_letter` /
+  `vehicle_schedule`, and change-request payloads (all statuses).
+- A bare `{ url }` ref is matched to its upload through
+  `GET lookup-by-url-internal?url=`; without a match it is listed and left.
+- Vehicle photos stay public; an upload also used by a photo is skipped.
+- Dry run by default. Idempotent. A row is rewritten only if it still holds
+  what was read.
+- It prints the old public URLs to purge from the Cloudflare cache.
 
 ## Integration Points
 
@@ -149,6 +218,11 @@ bytes).
   and error message ("Internal user-service auth failed") indicate this
   targets user-service, likely through a shared gateway/base URL rather than
   a direct service address.
+- **Outbound, HTTP to upload-service**: `GET /api/uploads/lookup-internal/:id`
+  before storing a file ref (see "Uploaded files"); the one-off script also
+  calls `move-to-private-internal/:id` and `lookup-by-url-internal`. Over
+  `BASE_API_URL` with `INTERNAL_API_KEY`; upload-service exempts internal-key
+  calls from its throttle.
 - **Outbound, RabbitMQ**: emits `create-notification` events to a
   `notification_queue` (via `ClientsModule` client `NOTIFICATION_SERVICE`)
   when a driver submits a vehicle/document change request — presumably
@@ -169,7 +243,8 @@ bytes).
   `NODE_ENV`, `RABBIT_MQ_URL`, `REDIS_URL`, `BASE_API_URL`,
   `INTERNAL_API_KEY`, `GATEWAY_SHARED_SECRET`, `ENABLE_SWAGGER`,
   `SWAGGER_USER`, `SWAGGER_PASSWORD`, `CAR_API_BASE_URL`,
-  `CAR_API_CACHE_TTL_MS`, `CAR_API_TIMEOUT_MS`.
+  `CAR_API_CACHE_TTL_MS`, `CAR_API_TIMEOUT_MS`, `TRUSTED_PROXY_IPS`
+  (optional).
 
 ## Known Issues
 
@@ -198,14 +273,17 @@ bytes).
 - RabbitMQ consumer on `vehicle_queue` is wired up in `main.ts` but has no
   `@EventPattern`/`@MessagePattern` handlers anywhere — dead/unused inbound
   queue as of this writing.
-- `src/auth/jwt.strategy.ts` has a leftover `console.log('Raw JWT Payload:',
-  payload)` that logs the full decoded JWT payload (including email) on
-  every authenticated request.
-- `fs` (`^0.0.1-security`) and `path` (`^0.12.7`) are listed as npm
-  dependencies in `package.json` — both are Node.js built-ins; these are
-  unnecessary third-party packages shadowing core modules (`fs@0.0.1-security`
-  in particular is a known placeholder/security-squat package on npm) and
-  are candidates for removal.
+- **Clients can't show private files yet** (checked 2026-10-11). The panel
+  lists a document only if `document.url` is set
+  (`components/driver-vehicles/dialogs/details.tsx`) and its form schema
+  requires a url (`components/driver-vehicles/validation/documentStep.ts`).
+  The driver app's models read a missing url as `''`. Both need to fetch
+  `GET /api/uploads/:id/private-url` for `isPrivate` refs before the
+  migration script is run with `--apply`.
+- **A driver can't open a private file an admin uploaded for them**:
+  upload-service's `private-url` allows only the uploader or an admin.
+- **Change requests submitted before 2026-10-11** were not ownership-checked;
+  approving one applies its stored refs as they are.
 - `.gitignore` references a `.DOCUMENTATION.md` file that doesn't exist
   anywhere in the repo — either a dead entry or a doc file that was lost
   before being committed.
