@@ -48,8 +48,15 @@ docker exec vehicle-service node dist/scripts/move-vehicle-documents-to-private.
 
 ## Tech Stack
 
-- Node 20 (alpine, per Dockerfile), Yarn Berry `4.13.0` (`packageManager` field;
-  Corepack-activated in Docker build since the base image ships Yarn Classic)
+- **Node 22 LTS** in the image (`node:22-alpine`, both Dockerfile stages,
+  since 2026-10-11; was `node:20-alpine`, end of life April 2026). Node 22
+  reaches end of life on 2027-04-30, so Node 24 is the next move. No
+  `engines` field in `package.json`. No dependency here compiles native
+  code: Prisma's engines are Node-API libraries picked by `prisma generate`
+  in the build stage (a `linux-musl…-openssl-3.0.x` target), so a Node major
+  change needs no rebuild of them.
+- Yarn Berry `4.13.0` (`packageManager` field; Corepack-activated in Docker
+  build since the base image ships Yarn Classic)
 - NestJS `^11.0.1` (`@nestjs/core`, `@nestjs/common`, `@nestjs/platform-express`)
 - Prisma `6.9.0` (`@prisma/client` + `prisma`), PostgreSQL via `DATABASE_URL`
 - `@nestjs/jwt` `^11.0.0` + `passport-jwt` `^4.0.1` for RS256 JWT verification
@@ -250,6 +257,22 @@ every compliance ref with a public url, calls upload-service's
 
 (Update this list as items are fixed.)
 
+- **Merging the Node 22 change does not deploy it.** Production runs the
+  Node 20 image until vehicle-service is redeployed from the console.
+  Nothing in the database or config changes, so rolling back means
+  redeploying the previous commit (`ALLOW_REVERT=1`). Remove this item once
+  production runs the Node 22 image.
+- **`prisma migrate deploy` fails on an empty database** (found 2026-10-11
+  on a throwaway local Postgres). Two migrations are out of order:
+  `20260518054248_added_vehicle_changes_req` renames the index
+  `VehicleDocumentChangeRequest_targetType_targetDocumentId_s_idx`, which
+  `20260518120000_vehicle_document_change_requests` creates later the same
+  day. Existing databases got them in the order they were written, so
+  deploys there are unaffected (not checked on the servers). A new database
+  (a fresh staging, a local copy) stops at the
+  rename with "relation ... does not exist". `yarn prisma db push` builds
+  the current schema without the history; don't edit applied migrations
+  without a plan for `_prisma_migrations` checksums.
 - Stray `package-lock.json` sits alongside `yarn.lock` — yarn is the
   canonical package manager repo-wide; don't delete without checking why it
   exists first.
