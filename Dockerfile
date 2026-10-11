@@ -1,11 +1,15 @@
 # syntax=docker/dockerfile:1
+# Node 22 LTS (since 2026-10-11; was Node 20, end of life April 2026). Keep
+# both stages on the same major. Node 22 itself reaches end of life on
+# 2027-04-30.
+
 # ---- Build stage -----------------------------------------------------
-FROM node:20-alpine AS build
+FROM node:22-alpine AS build
 
 WORKDIR /app
 
 # This project uses Yarn Berry (nodeLinker: node-modules, lockfile format v8),
-# but node:20-alpine ships Yarn Classic 1.x as the default global `yarn`.
+# but node:22-alpine ships Yarn Classic 1.x as the default global `yarn`.
 # Corepack activates the exact Yarn version pinned in package.json so the
 # lockfile is read correctly (Yarn Classic cannot parse a Berry lockfile).
 RUN corepack enable
@@ -27,7 +31,7 @@ RUN yarn prisma generate
 RUN yarn build
 
 # ---- Production stage --------------------------------------------------
-FROM node:20-alpine AS production
+FROM node:22-alpine AS production
 
 ENV NODE_ENV=production
 ENV COREPACK_HOME=/app/.corepack-cache
