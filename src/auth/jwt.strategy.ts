@@ -19,8 +19,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: any) {
-    console.log('Raw JWT Payload:', payload);
-
     // Check if user is blocked
     const blocked = await this.redis.get(`blocked:${payload.sub}`);
 
