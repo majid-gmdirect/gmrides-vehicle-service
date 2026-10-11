@@ -12,14 +12,31 @@ import {
 } from 'class-validator';
 import { VehicleType } from './vehicle-type.enum';
 
+/**
+ * A file reference from upload-service. The id is checked with
+ * upload-service and its url (or none, for a private file) is stored.
+ */
 class UploadFilePayloadDto {
   @ApiProperty({ example: 'file-id' })
   @IsString()
   id: string;
 
-  @ApiProperty({ example: 'https://assets.example.com/uploads/file.jpg' })
+  @ApiPropertyOptional({
+    description:
+      'Public URL. Ignored (upload-service is asked); absent for a private file.',
+    example: 'https://assets.example.com/uploads/file.jpg',
+  })
+  @IsOptional()
   @IsString()
-  url: string;
+  url?: string;
+
+  @ApiPropertyOptional({
+    description: 'true for a file in the private bucket (no url).',
+    example: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  isPrivate?: boolean;
 }
 
 export class CreateVehicleDto {

@@ -57,6 +57,7 @@ import { assertDriverMayMutateLiveVehicleDocument } from '../common/vehicle-docu
 import { attachPendingToVehicleDocumentRows } from '../common/pending-vehicle-document-change-request.util';
 import { assertDriverMayMutateLiveVehicle } from '../common/vehicle-mutation.policy';
 import { attachPendingToVehicleRows } from '../common/pending-vehicle-change-request.util';
+import { UploadOwnershipService } from '../common/upload-ownership.service';
 
 type Requester = { userId: string; role?: string };
 
@@ -74,7 +75,29 @@ export class VehicleService {
     private readonly httpService: HttpService,
     @Inject('NOTIFICATION_SERVICE')
     private readonly notificationClient: ClientProxy,
+    private readonly uploadOwnership: UploadOwnershipService,
   ) { }
+
+  /**
+   * Checks a client-sent file reference with upload-service before it is
+   * stored, and returns the reference to store (see UploadOwnershipService).
+   * `undefined` means the field was not sent.
+   */
+  private resolveFileRef(
+    field: string,
+    incoming: unknown,
+    driverId: string,
+    requester: Requester,
+    existing?: unknown,
+  ) {
+    return this.uploadOwnership.resolveFileRef({
+      field,
+      incoming,
+      ownerUserId: driverId,
+      requester,
+      existing,
+    });
+  }
 
   private mergeAdminReviewFieldsOnCreate(
     isAdmin: boolean,
@@ -469,6 +492,19 @@ export class VehicleService {
       throw new BadRequestException('Plate number already exists');
     }
 
+    const permissionLetter = await this.resolveFileRef(
+      'permission_letter',
+      dto.permission_letter,
+      driverId,
+      requester,
+    );
+    const vehicleSchedule = await this.resolveFileRef(
+      'vehicle_schedule',
+      dto.vehicle_schedule,
+      driverId,
+      requester,
+    );
+
     const vehicle = await this.prisma.vehicle.create({
       data: {
         driverId,
@@ -479,11 +515,11 @@ export class VehicleService {
         plateNumber: normalizedPlate,
         vehicleType: dto.vehicleType,
         ...(dto.isActive !== undefined && { isActive: dto.isActive }),
-        ...(dto.permission_letter !== undefined && {
-          permission_letter: dto.permission_letter as unknown as Prisma.InputJsonValue,
+        ...(permissionLetter !== undefined && {
+          permission_letter: permissionLetter as Prisma.InputJsonValue,
         }),
-        ...(dto.vehicle_schedule !== undefined && {
-          vehicle_schedule: dto.vehicle_schedule as unknown as Prisma.InputJsonValue,
+        ...(vehicleSchedule !== undefined && {
+          vehicle_schedule: vehicleSchedule as Prisma.InputJsonValue,
         }),
       },
     });
@@ -589,11 +625,25 @@ export class VehicleService {
     if (dto.color !== undefined) data.color = dto.color?.trim() || null;
     if (dto.vehicleType !== undefined) data.vehicleType = dto.vehicleType;
     if (dto.isActive !== undefined) data.isActive = dto.isActive;
-    if (dto.permission_letter !== undefined) {
-      data.permission_letter = dto.permission_letter as unknown as Prisma.InputJsonValue;
+    const permissionLetter = await this.resolveFileRef(
+      'permission_letter',
+      dto.permission_letter,
+      driverId,
+      requester,
+      existing.permission_letter,
+    );
+    if (permissionLetter !== undefined) {
+      data.permission_letter = permissionLetter as Prisma.InputJsonValue;
     }
-    if (dto.vehicle_schedule !== undefined) {
-      data.vehicle_schedule = dto.vehicle_schedule as unknown as Prisma.InputJsonValue;
+    const vehicleSchedule = await this.resolveFileRef(
+      'vehicle_schedule',
+      dto.vehicle_schedule,
+      driverId,
+      requester,
+      existing.vehicle_schedule,
+    );
+    if (vehicleSchedule !== undefined) {
+      data.vehicle_schedule = vehicleSchedule as Prisma.InputJsonValue;
     }
     if (dto.requiestOptionalDocuments !== undefined) {
       if (!isAdmin) {
@@ -958,17 +1008,24 @@ export class VehicleService {
     await this.assertDriverExistsAndIsDriver(driverId);
     await this.getVehicleForDriverOrThrow(driverId, vehicleId);
 
-    const image = await this.prisma.vehicleImage.create({
+    const image = await this.resolveFileRef(
+      'vehicle_image',
+      dto.image,
+      driverId,
+      requester,
+    );
+
+    const row = await this.prisma.vehicleImage.create({
       data: {
         vehicleId,
         type: dto.type,
-        image: dto.image as Prisma.InputJsonValue,
+        image: image as Prisma.InputJsonValue,
       },
     });
 
     return formatResponse({
       success: true,
-      data: image,
+      data: row,
       message: 'Vehicle image added successfully',
     });
   }
@@ -1072,6 +1129,13 @@ export class VehicleService {
       rejectedReason,
     );
 
+    const document = await this.resolveFileRef(
+      'vehicle_inspection',
+      rest.document,
+      driverId,
+      requester,
+    );
+
     const inspection = await this.prisma.vehicleInspection.create({
       data: {
         vehicleId,
@@ -1085,8 +1149,8 @@ export class VehicleService {
         ...(rest.expiryDate !== undefined && {
           expiryDate: toPrismaDateTime(rest.expiryDate),
         }),
-        ...(rest.document !== undefined && {
-          document: rest.document as Prisma.InputJsonValue,
+        ...(document !== undefined && {
+          document: document as Prisma.InputJsonValue,
         }),
       },
     });
@@ -1140,8 +1204,15 @@ export class VehicleService {
         ? toPrismaDateTime(rest.expiryDate)
         : null;
     }
-    if (rest.document !== undefined) {
-      data.document = rest.document as Prisma.InputJsonValue;
+    const document = await this.resolveFileRef(
+      'vehicle_inspection',
+      rest.document,
+      driverId,
+      requester,
+      existing.document,
+    );
+    if (document !== undefined) {
+      data.document = document as Prisma.InputJsonValue;
     }
     applyDriverResubmissionReviewReset(
       isAdmin,
@@ -1280,6 +1351,13 @@ export class VehicleService {
       rejectedReason,
     );
 
+    const document = await this.resolveFileRef(
+      'vehicle_insurance',
+      rest.document,
+      driverId,
+      requester,
+    );
+
     const insurance = await this.prisma.vehicleInsurance.create({
       data: {
         vehicleId,
@@ -1294,8 +1372,8 @@ export class VehicleService {
         ...(rest.endDate !== undefined && {
           endDate: toPrismaDateTime(rest.endDate),
         }),
-        ...(rest.document !== undefined && {
-          document: rest.document as Prisma.InputJsonValue,
+        ...(document !== undefined && {
+          document: document as Prisma.InputJsonValue,
         }),
       },
     });
@@ -1346,8 +1424,15 @@ export class VehicleService {
     if (rest.endDate !== undefined) {
       data.endDate = rest.endDate ? toPrismaDateTime(rest.endDate) : null;
     }
-    if (rest.document !== undefined) {
-      data.document = rest.document as Prisma.InputJsonValue;
+    const document = await this.resolveFileRef(
+      'vehicle_insurance',
+      rest.document,
+      driverId,
+      requester,
+      existing.document,
+    );
+    if (document !== undefined) {
+      data.document = document as Prisma.InputJsonValue;
     }
     applyDriverResubmissionReviewReset(
       isAdmin,
@@ -1486,6 +1571,13 @@ export class VehicleService {
       rejectedReason,
     );
 
+    const document = await this.resolveFileRef(
+      'vehicle_pco_document',
+      rest.document,
+      driverId,
+      requester,
+    );
+
     const doc = await this.prisma.vehiclePcoDocument.create({
       data: {
         vehicleId,
@@ -1500,8 +1592,8 @@ export class VehicleService {
         ...(rest.expiryDate !== undefined && {
           expiryDate: toPrismaDateTime(rest.expiryDate),
         }),
-        ...(rest.document !== undefined && {
-          document: rest.document as Prisma.InputJsonValue,
+        ...(document !== undefined && {
+          document: document as Prisma.InputJsonValue,
         }),
       },
     });
@@ -1554,8 +1646,15 @@ export class VehicleService {
     if (rest.expiryDate !== undefined) {
       data.expiryDate = toPrismaDateTime(rest.expiryDate);
     }
-    if (rest.document !== undefined) {
-      data.document = rest.document as Prisma.InputJsonValue;
+    const document = await this.resolveFileRef(
+      'vehicle_pco_document',
+      rest.document,
+      driverId,
+      requester,
+      existing.document,
+    );
+    if (document !== undefined) {
+      data.document = document as Prisma.InputJsonValue;
     }
     applyDriverResubmissionReviewReset(
       isAdmin,
@@ -1682,10 +1781,17 @@ export class VehicleService {
     await this.assertDriverExistsAndIsDriver(driverId);
     await this.getVehicleForDriverOrThrow(driverId, vehicleId);
 
+    const document = await this.resolveFileRef(
+      'log_book_v5',
+      dto.document,
+      driverId,
+      requester,
+    );
+
     const row = await this.prisma.logBookV5.create({
       data: {
         vehicleId,
-        document: dto.document as unknown as Prisma.InputJsonValue,
+        document: document as Prisma.InputJsonValue,
       },
     });
 
@@ -1759,8 +1865,15 @@ export class VehicleService {
     assertDriverMayMutateLiveVehicleDocument(isAdmin, existing.status);
 
     const data: Prisma.LogBookV5UpdateInput = {};
-    if (dto.document !== undefined) {
-      data.document = dto.document as unknown as Prisma.InputJsonValue;
+    const document = await this.resolveFileRef(
+      'log_book_v5',
+      dto.document,
+      driverId,
+      requester,
+      existing.document,
+    );
+    if (document !== undefined) {
+      data.document = document as Prisma.InputJsonValue;
     }
     applyDriverResubmissionReviewReset(
       isAdmin,
@@ -1943,10 +2056,19 @@ export class VehicleService {
     await this.assertDriverExistsAndIsDriver(driverId);
     await this.getVehicleForDriverOrThrow(driverId, vehicleId);
 
+    const document = await this.resolveFileRef(
+      'permission_letter',
+      dto.document,
+      driverId,
+      requester,
+    );
+
     const row = await this.prisma.permissionLetter.create({
       data: {
         vehicleId,
-        ...(dto.document !== undefined && { document: dto.document as Prisma.InputJsonValue }),
+        ...(document !== undefined && {
+          document: document as Prisma.InputJsonValue,
+        }),
       },
     });
 
@@ -1977,7 +2099,16 @@ export class VehicleService {
     assertDriverMayMutateLiveVehicleDocument(isAdmin, existing.status);
 
     const data: Prisma.PermissionLetterUpdateInput = {};
-    if (dto.document !== undefined) data.document = dto.document as Prisma.InputJsonValue;
+    const document = await this.resolveFileRef(
+      'permission_letter',
+      dto.document,
+      driverId,
+      requester,
+      existing.document,
+    );
+    if (document !== undefined) {
+      data.document = document as Prisma.InputJsonValue;
+    }
     applyDriverResubmissionReviewReset(
       isAdmin,
       existing.status,
@@ -2159,10 +2290,19 @@ export class VehicleService {
     await this.assertDriverExistsAndIsDriver(driverId);
     await this.getVehicleForDriverOrThrow(driverId, vehicleId);
 
+    const document = await this.resolveFileRef(
+      'vehicle_schedule',
+      dto.document,
+      driverId,
+      requester,
+    );
+
     const row = await this.prisma.vehicleSchedule.create({
       data: {
         vehicleId,
-        ...(dto.document !== undefined && { document: dto.document as Prisma.InputJsonValue }),
+        ...(document !== undefined && {
+          document: document as Prisma.InputJsonValue,
+        }),
       },
     });
 
@@ -2193,7 +2333,16 @@ export class VehicleService {
     assertDriverMayMutateLiveVehicleDocument(isAdmin, existing.status);
 
     const data: Prisma.VehicleScheduleUpdateInput = {};
-    if (dto.document !== undefined) data.document = dto.document as Prisma.InputJsonValue;
+    const document = await this.resolveFileRef(
+      'vehicle_schedule',
+      dto.document,
+      driverId,
+      requester,
+      existing.document,
+    );
+    if (document !== undefined) {
+      data.document = document as Prisma.InputJsonValue;
+    }
     applyDriverResubmissionReviewReset(
       isAdmin,
       existing.status,

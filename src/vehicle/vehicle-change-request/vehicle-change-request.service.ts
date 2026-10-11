@@ -16,6 +16,7 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 import { formatResponse } from '../../common/format-response.util';
 import { lastValueFrom } from 'rxjs';
+import { UploadOwnershipService } from '../../common/upload-ownership.service';
 import {
   buildStoredVehicleChangePayload,
   mapVehicleChangePayloadForResponse,
@@ -44,6 +45,7 @@ export class VehicleChangeRequestService {
     private readonly httpService: HttpService,
     @Inject('NOTIFICATION_SERVICE')
     private readonly notificationClient: ClientProxy,
+    private readonly uploadOwnership: UploadOwnershipService,
   ) {}
 
   private assertDriverAccess(driverId: string, requester: Requester): void {
@@ -291,10 +293,21 @@ export class VehicleChangeRequestService {
     }
 
     const { driver_note, ...fields } = dto;
-    const payload = buildStoredVehicleChangePayload(
-      vehicle,
-      fields as VehicleChangeInput,
-    );
+    // Check the proposed files with upload-service and store its references,
+    // not the client's: an admin applies the payload as is on approval.
+    const input = fields as VehicleChangeInput;
+    for (const field of ['permission_letter', 'vehicle_schedule'] as const) {
+      const resolved = await this.uploadOwnership.resolveFileRef({
+        field,
+        incoming: input[field],
+        ownerUserId: driverId,
+        requester,
+        existing: vehicle[field],
+      });
+      // `null` (remove the file) passes through as before.
+      input[field] = resolved as Record<string, unknown> | undefined;
+    }
+    const payload = buildStoredVehicleChangePayload(vehicle, input);
     if (payload.changedFields.length === 0) {
       throw new BadRequestException('No changes detected in the change request');
     }

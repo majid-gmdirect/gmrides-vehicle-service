@@ -9,7 +9,7 @@ import {
   VehiclePcoDocument,
   VehicleSchedule,
 } from '@prisma/client';
-import { pickPublicMediaRef } from './json-media.util';
+import { pickMediaRef } from './json-media.util';
 import {
   toPayloadDateString,
   toPrismaDateTime,
@@ -88,11 +88,8 @@ export type VehicleDocumentChangePayload =
   | DocumentOnlyChangePayload;
 
 function mediaFromJson(value: unknown): Record<string, unknown> | null {
-  const ref = pickPublicMediaRef(value);
-  if (!ref) return null;
-  const out: Record<string, unknown> = { url: ref.url };
-  if (ref.id) out.id = ref.id;
-  return out;
+  const ref = pickMediaRef(value);
+  return ref ? { ...ref } : null;
 }
 
 function mediaFromDto(
@@ -708,7 +705,7 @@ export function mapChangePayloadForResponse(
         inspectionType: p.inspectionType,
         inspectionDate: p.inspectionDate,
         expiryDate: p.expiryDate,
-        document: pickPublicMediaRef(p.document),
+        document: pickMediaRef(p.document),
       };
       if (parsed.changedFields?.length) {
         response.changedFields = parsed.changedFields;
@@ -723,7 +720,7 @@ export function mapChangePayloadForResponse(
         policyNumber: p.policyNumber,
         startDate: p.startDate,
         endDate: p.endDate,
-        document: pickPublicMediaRef(p.document),
+        document: pickMediaRef(p.document),
       };
       if (parsed.changedFields?.length) {
         response.changedFields = parsed.changedFields;
@@ -738,7 +735,7 @@ export function mapChangePayloadForResponse(
         licenseNumber: p.licenseNumber,
         issueDate: p.issueDate,
         expiryDate: p.expiryDate,
-        document: pickPublicMediaRef(p.document),
+        document: pickMediaRef(p.document),
       };
       if (parsed.changedFields?.length) {
         response.changedFields = parsed.changedFields;
@@ -750,7 +747,7 @@ export function mapChangePayloadForResponse(
     case VehicleDocumentKind.LOG_BOOK_V5: {
       const parsed = parseDocumentOnlyStoredPayload(payload);
       const response: Record<string, unknown> = {
-        document: pickPublicMediaRef(parsed.data.document),
+        document: pickMediaRef(parsed.data.document),
       };
       if (parsed.changedFields?.length) {
         response.changedFields = parsed.changedFields;
