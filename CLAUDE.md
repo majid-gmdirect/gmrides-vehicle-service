@@ -165,6 +165,14 @@ link-local and private hops, plus the optional comma-separated
 `X-Forwarded-For` can't choose the bucket. Before that every client shared
 one bucket (the Docker gateway address).
 
+**Calls with a valid `INTERNAL_API_KEY` are not counted** (since 2026-10-16,
+`skipIf` in `app.module.ts`, `hasValidInternalApiKey` in
+`auth/internal-api.guard.ts`, as in user- and upload-service). The other
+services all reach this one from the same address, and booking-service looks
+up a driver's vehicle (`internal/driver/:id/document-status`) for each
+booking it returns. On 2026-10-16 those lookups passed 100 a minute, got
+429, and bookings came back without their vehicle.
+
 ## Uploaded files
 
 Clients upload to upload-service (`POST /api/uploads`, multipart `file`, plus
